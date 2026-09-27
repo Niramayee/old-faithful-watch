@@ -3,8 +3,8 @@
 An illustrated, animated view of Old Faithful in Yellowstone's Upper Geyser Basin.
 
 - Counts down to the next eruption using the live NPS ranger prediction and plays the eruption when it's due.
-- Between eruptions, trivia drifts up out of the vent in the steam.
-- "I can't wait, blow it up now" plays a shortened eruption at any time.
+- Between eruptions, trivia rises out of the vent in a faint cloud of steam, hangs for a while, then evaporates.
+- "Hurry it up, you old geezer!" plays a shortened eruption at any time, and "Okay, okay. Put a lid on it!" cuts that replay short. A real eruption can't be stopped.
 - Optional sound (wind, birds, the eruption, applause), all generated in the browser.
 
 ## How it's built
@@ -17,8 +17,10 @@ Plain HTML, CSS and JavaScript with no build step. The geyser is a set of vintag
 | `css/style.css` | Styles for the signs, buttons and trivia carriers |
 | `js/data.js` | Trivia facts and prediction settings: **edit facts here** |
 | `js/geyser.js` | The geyser: frame cut-outs, eruption timeline, spray and steam |
+| `js/steam-message.js` | Trivia clouds: rise from the vent, hold the text, tear apart and evaporate |
 | `eruption.html` | Test bench for the eruption alone (play, scrub, speed, loop) |
-| `art/`, `tools/` | Source frames, and the scripts that clean them and build their masks (`python3 tools/prepare_art.py`, then `./tools/make_masks.sh`) |
+| `message.html` | Test bench for the steam messages |
+| `art/`, `tools/` | Source art, and the scripts that clean it into `assets/` and build the geyser masks (`python3 tools/prepare_art.py`, then `./tools/make_masks.sh`) |
 | `js/audio.js` | Synthesized sound (Web Audio API) |
 | `js/app.js` | Predictions, countdown, trivia delivery, controls, main loop |
 | `api/prediction.js` | Vercel serverless function that fetches the prediction |
@@ -37,6 +39,8 @@ To refresh the saved snapshot, update `OF.PREDICTION.snapshot` in `js/data.js` f
 python3 -m http.server 8000
 # open http://localhost:8000
 ```
+
+Use a local server rather than opening the file directly. Opened as a file, browsers won't let the page read its own images' pixels, so a few effects (extra idle wisps, swelling cloud edges, cleaning the steam-message art) are skipped.
 
 Add `#soon` to the URL (`http://localhost:8000/#soon`) to schedule a "live" eruption 40 seconds out for testing.
 

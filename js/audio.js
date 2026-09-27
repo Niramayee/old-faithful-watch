@@ -63,10 +63,42 @@ OF.Sound = (() => {
 
     async toggle() {
       if (!this.ctx && !this.init()) return false;
-      if (this.ctx.state === 'suspended') await this.ctx.resume();
       this.on = !this.on;
+      if (this.on) {
+        this.phoneSession(true);
+        if (this.ctx.state !== 'running') await this.ctx.resume().catch(() => {});
+        this.chickadee(0);   // something to hear straight away, even if the scene is quiet
+      } else this.phoneSession(false);
       this.master.gain.setTargetAtTime(this.on ? 0.9 : 0, this.ctx.currentTime, 0.3);
       return this.on;
+    },
+
+    // iPhones mute web audio when the ring/silent switch is on silent. Declaring this as media
+    // playback (newer Safari), or playing a silent audio element alongside it (older Safari), makes it
+    // play like a video does.
+    phoneSession(on) {
+      try { if (navigator.audioSession) navigator.audioSession.type = on ? 'playback' : 'auto'; } catch { /* unsupported */ }
+      if (!on) { if (this.tag) this.tag.pause(); return; }
+      if (!this.tag) {
+        const rate = 8000, n = rate / 2, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+        const str = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+        str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVEfmt ');
+        v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+        v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+        str(36, 'data'); v.setUint32(40, n * 2, true);
+        this.tag = new Audio(URL.createObjectURL(new Blob([buf], { type: 'audio/wav' })));
+        this.tag.loop = true;
+        this.tag.setAttribute('playsinline', '');
+      }
+      this.tag.play().catch(() => { /* blocked; web audio may still play */ });
+    },
+
+    // iOS suspends audio when the page is hidden or a call comes in; pick up again on return.
+    wake() {
+      if (this.on && this.ctx && this.ctx.state !== 'running') {
+        this.ctx.resume().catch(() => {});
+        if (this.tag) this.tag.play().catch(() => {});
+      }
     },
 
     set(g, v) { g.gain.setTargetAtTime(v, this.ctx.currentTime, 0.25); },
@@ -75,9 +107,9 @@ OF.Sound = (() => {
     update(wind, level, steamBoost, splashing) {
       if (!this.on) return;
       const t = this.ctx.currentTime;
-      this.set(this.windG, 0.035 + 0.07 * wind);
-      this.windF.frequency.setTargetAtTime(300 + 520 * wind, t, 0.6);
-      this.set(this.hissG, 0.01 + 0.025 * steamBoost + 0.03 * splashing);
+      this.set(this.windG, 0.05 + 0.08 * wind);
+      this.windF.frequency.setTargetAtTime(500 + 700 * wind, t, 0.6);   // high enough for phone speakers
+      this.set(this.hissG, 0.018 + 0.03 * steamBoost + 0.04 * splashing);
       this.set(this.roarG, 0.5 * Math.pow(level, 1.3));
       this.set(this.jetG, 0.16 * level);
       this.set(this.rumbleG, 0.75 * level);

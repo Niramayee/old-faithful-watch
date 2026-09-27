@@ -12,6 +12,7 @@
   const fmtParkDay = new Intl.DateTimeFormat('en-US', { timeZone: PARK_TZ, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
   const fmtLocal = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
   const sameZone = fmtPark.format(new Date()) === fmtLocal.format(new Date());
+  const fmtTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
   const fmtParkHour = new Intl.DateTimeFormat('en-US', { timeZone: PARK_TZ, hour: 'numeric', minute: 'numeric', hourCycle: 'h23' });
   function parkHour() {
     const [h, m] = fmtParkHour.format(new Date()).split(':').map(Number);
@@ -84,27 +85,28 @@
 
   // ---------- countdown bar ----------
   const el = {
-    countdown: $('countdown'), predLine: $('predLine'), localLine: $('localLine'), status: $('status'),
-    statusText: $('statusText'), label: $('signLabel'), clock: $('ysClock'), blow: $('blow')
+    countdown: $('countdown'), predLine: $('predLine'), status: $('status'),
+    statusText: $('statusText'), statusTip: $('statusTip'), label: $('signLabel'), clock: $('ysClock'), blow: $('blow')
   };
   let eruptFactI = 0, eruptFactT = 0;
   const setText = (node, text) => { if (node.textContent !== text) node.textContent = text; };
 
-  // Short tag for where the prediction came from, e.g. "Live · NPS · 2m ago". The full sentence is its tooltip.
+  // Badge for where the prediction came from: "Live" when it's the park's current prediction.
+  // The details (source, when we last checked) are in its hover/tap tooltip.
   function sourceTag(now) {
-    const ago = pred.fetchedAt ? ` · ${Math.max(0, Math.round((now - pred.fetchedAt) / 60e3))}m ago` : '';
-    return {
-      nps: ['live', `Live · NPS${ago}`],
-      geysertimes: ['live', `Live · GeyserTimes${ago}`],
-      snapshot: ['saved', 'Saved NPS prediction'],
-      estimate: ['saved', 'Estimate'],
-      demo: ['window', 'Test mode']
-    }[pred.source];
+    const src = pred.source;
+    if (src === 'nps' || src === 'geysertimes') {
+      const mins = Math.max(0, Math.round((now - pred.fetchedAt) / 60e3));
+      const ago = mins < 1 ? 'just now' : mins === 1 ? '1 minute ago' : `${mins} minutes ago`;
+      const who = src === 'nps' ? 'Official NPS ranger prediction, relayed by GeyserTimes.' : 'GeyserTimes prediction (the NPS one isn’t posted yet).';
+      return ['live', 'Live', `${who} Checked ${ago}, at ${fmtTime.format(new Date(pred.fetchedAt))}. Refreshes every ${Math.round(CFG.refreshMs / 60e3)} minutes.`];
+    }
+    return { snapshot: ['saved', 'Saved', SOURCE_TEXT.snapshot()], estimate: ['saved', 'Estimate', SOURCE_TEXT.estimate()], demo: ['window', 'Test mode', SOURCE_TEXT.demo()] }[src];
   }
 
   function renderSign(full) {
     const now = Date.now();
-    el.clock.textContent = fmtPark.format(new Date(now));
+    setText(el.clock, fmtPark.format(new Date(now)));
     const e = eruption;
     const live = e && e.kind === 'live';
     const steaming = e && (e.phase === 'collapse' || e.phase === 'fade');
@@ -121,17 +123,19 @@
     }
 
     // status: the eruption while one is on, otherwise where the prediction came from
-    let state, text;
+    let state, text, tip = '';
     if (e) {
       state = steaming ? 'after' : 'erupting';
       text = e.kind === 'demo' ? 'Replay' : 'Live eruption';
+      tip = e.kind === 'demo' ? 'A shortened replay. The real schedule carries on.' : 'Erupting now, on the park’s predicted schedule.';
     } else if (pred) {
-      [state, text] = sourceTag(now);
+      [state, text, tip] = sourceTag(now);
       if (now >= pred.open && state !== 'saved') state = 'window';
     }
     if (state) {
       if (el.status.dataset.state !== state) el.status.dataset.state = state;
       setText(el.statusText, text);
+      setText(el.statusTip, tip);
     }
 
     if (e && e.phase !== 'pre' && !steaming) {
@@ -139,16 +143,13 @@
         el.predLine.textContent = OF.ERUPTION_FACTS[eruptFactI++ % OF.ERUPTION_FACTS.length];
         eruptFactT = now + 6000;
       }
-      el.localLine.hidden = true;
       return;
     }
     if (full || now > eruptFactT) {
       if (!pred) return;
       const win = Math.round((pred.close - pred.open) / 120e3);
-      el.predLine.textContent = live ? 'Next prediction after this eruption' : `${fmtPark.format(new Date(pred.time))} · ±${win} min`;
-      el.localLine.hidden = sameZone || live;
-      if (!sameZone) el.localLine.textContent = `${fmtLocal.format(new Date(pred.time))} your time`;
-      el.status.title = SOURCE_TEXT[pred.source]();
+      const at = fmtTime.format(new Date(pred.time));
+      el.predLine.textContent = live ? 'Next prediction after this eruption' : `${at}${sameZone ? '' : ' your time'} · ±${win} min`;
       eruptFactT = now + 60e3;
     }
   }
@@ -187,10 +188,14 @@
     });
   }
 
+  // The button starts a replay, and can cut a replay short. A real eruption can't be stopped.
+  const BLOW = { start: 'Hurry it up, you old geezer!', stop: 'Okay, okay. Put a lid on it!', stopping: 'Fine, simmering down…' };
+  function setBlow(text, enabled) { setText(el.blow, text); el.blow.disabled = !enabled; }
+
   function startEruption(kind) {
     eruption = { kind, phase: 'pre' };
-    el.blow.disabled = true;
-    el.blow.textContent = kind === 'live' ? 'Erupting for real' : 'Here it comes…';
+    if (kind === 'live') setBlow('Erupting for real', false);
+    else setBlow(BLOW.stop, true);
     clearTrivia();
     announce(kind === 'live' ? 'Old Faithful is starting to erupt.' : 'Replay eruption starting.');
     eruptFactT = 0;
@@ -202,17 +207,17 @@
     if (!e) return;
     if (phase === 'idle') {
       eruption = null;
-      el.blow.disabled = false;
-      el.blow.textContent = 'Hurry it up, geyser';
+      setBlow(BLOW.start, true);
       Tri.next = performance.now() / 1000 + 4;
       if (e.kind === 'live') refreshPrediction();
       renderSign(true);
       return;
     }
     e.phase = phase;
-    if (phase === 'rise') { announce('Old Faithful is erupting.'); el.blow.textContent = 'Erupting…'; }
-    if (phase === 'die') el.blow.textContent = 'Winding down…';
-    if (phase === 'collapse') { Snd.applause(); el.blow.textContent = 'Settling down…'; }
+    const live = e.kind === 'live';
+    if (phase === 'rise') { announce('Old Faithful is erupting.'); if (live) setBlow('Erupting…', false); }
+    if (phase === 'die' && live) setBlow('Winding down…', false);
+    if (phase === 'collapse') { if (!e.stopping) Snd.applause(); if (live) setBlow('Settling down…', false); }
     renderSign(true);
   };
 
@@ -230,12 +235,23 @@
   }
 
   // ---------- trivia ----------
-  // For now every fact rises out of the vent in a puff of steam. Animal carriers come back with the animal art.
-  const Tri = { active: null, next: performance.now() / 1000 + 4, seen: new Set() };
+  // Each fact rises out of the vent in a faint cloud of steam (js/steam-message.js).
+  // Animal carriers come back with the animal art.
+  const M = OF.SteamMessage;
+  const Tri = { active: null, next: performance.now() / 1000 + 4, seen: new Set(), ready: false };
   let order = shuffle(OF.FACTS.map((_, i) => i));
   const notes = [];
-  const fx = $('fx');
   let wind = 0.4;
+  const msgOpts = {
+    layer: $('fx'),
+    vent: () => G.vent(),
+    safe: () => {
+      const title = document.querySelector('.title').getBoundingClientRect();
+      const bar = [...document.querySelector('.bar').children].map((c) => c.getBoundingClientRect().top);
+      return { top: title.bottom + 8, bottom: innerHeight - Math.min(...bar) + 16 };
+    }
+  };
+  M.load().then(() => { Tri.ready = true; });
 
   function pickFact() {
     let i = order.find((k) => !Tri.seen.has(k));
@@ -244,36 +260,15 @@
     return OF.FACTS[i];
   }
 
-  function makeNote(kind, fact, eyebrow) {
-    const n = document.createElement('div');
-    n.className = 'note ' + kind;
-    const card = document.createElement('div');
-    card.className = 'card';
-    const cat = document.createElement('span');
-    cat.className = 'cat';
-    cat.textContent = eyebrow;
-    const p = document.createElement('p');
-    p.textContent = fact.t;
-    card.append(cat, p);
-    n.append(card);
-    n.style.opacity = '0';
-    fx.append(n);
-    return n;
-  }
-
-  function readTime(fact) { return clamp(7 + fact.t.split(/\s+/).length * 0.32, 10, 17); }
-
   function deliver() {
+    if (!Tri.ready) return;
     const fact = pickFact();
     logNote(fact);
-    const n = makeNote('steam', fact, fact.c);
-    Tri.active = { el: n, t: 0, dur: readTime(fact) + 3, w: n.offsetWidth, h: n.offsetHeight, drift: 0 };
-    G.puff(4);
+    Tri.active = M.create(fact, msgOpts);
   }
 
   function clearTrivia() {
-    const a = Tri.active;
-    if (a) a.t = Math.max(a.t, a.dur - 1);
+    if (Tri.active) Tri.active.evaporate();
   }
 
   function updateTrivia(dt, now) {
@@ -282,22 +277,8 @@
       if (!eruption && now > Tri.next) deliver();
       return;
     }
-    a.t += dt;
-    const W = innerWidth, H = innerHeight, v = G.vent(), u = v.scale;
-    const p = clamp(a.t / a.dur, 0, 1);
-    const rise = 1 - Math.pow(1 - p, 1.6);
-    a.drift += wind * u * 30 * dt;
-    const x = clamp(v.x + a.drift + Math.sin(a.t * 0.6) * u * 24, a.w / 2 + 16, W - a.w / 2 - 16);
-    const y0 = v.y - a.h / 2 - 50 * u;
-    const y1 = Math.max(H * 0.16 + a.h / 2, 120 + a.h / 2);
-    const y = y0 + (y1 - y0) * rise;
-    const o = Math.min(1, a.t / 1.2) * Math.min(1, (a.dur - a.t) / 1.4);
-    a.el.style.opacity = o.toFixed(3);
-    a.el.style.transform = `translate3d(${(x - a.w / 2).toFixed(1)}px, ${(y - a.h / 2).toFixed(1)}px, 0) scale(${(0.85 + 0.15 * Math.min(1, a.t / 1.5)).toFixed(3)})`;
-    if (a.t >= a.dur) {
-      const n = a.el;
-      n.classList.add('out');
-      setTimeout(() => n.remove(), 800);
+    a.update(dt);
+    if (a.done) {
       Tri.active = null;
       Tri.next = now + rand(3, 6);
     }
@@ -332,7 +313,15 @@
   function announce(text) { announcer.textContent = text; }
 
   // ---------- controls ----------
-  el.blow.addEventListener('click', () => { if (!eruption) startEruption('demo'); });
+  el.blow.addEventListener('click', () => {
+    if (!eruption) startEruption('demo');
+    else if (eruption.kind === 'demo' && !eruption.stopping) {
+      eruption.stopping = true;
+      setBlow(BLOW.stopping, false);
+      announce('Replay stopped.');
+      G.windDown();
+    }
+  });
 
   const soundBtn = $('sound');
   soundBtn.addEventListener('click', async () => {
@@ -340,6 +329,10 @@
     soundBtn.setAttribute('aria-pressed', String(on));
     soundBtn.textContent = on ? 'Sound on' : 'Sound off';
   });
+
+  // iOS pauses web audio when the page is hidden or interrupted; resume on return or the next tap.
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) Snd.wake(); });
+  document.addEventListener('pointerdown', () => Snd.wake());
 
   // ---------- ambient calls ----------
   let birdT = rand(4, 10);
@@ -369,7 +362,7 @@
   // Test hook: #erupt=<seconds> starts a replay and jumps that far into it.
   const jump = location.hash.match(/erupt=([\d.]+)/);
   if (jump) G.ready.then(() => { startEruption('demo'); G.seek(+jump[1]); });
-  addEventListener('resize', G.fit);
+  addEventListener('resize', () => { G.fit(); if (Tri.active) Tri.active.layout(); });
   if (window.ResizeObserver) new ResizeObserver(() => G.fit()).observe(dock);   // e.g. fonts arriving
 
   let last = performance.now(), sndT = 0, signT = 0, trigT = 0, clockT = 0;

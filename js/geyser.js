@@ -126,8 +126,9 @@ OF.Geyser = (() => {
     }));
     for (const id of IDS) cuts[id] = cut(imgs[DEFS[id].src], masks[DEFS[id].src], DEFS[id]);
     for (const id of HAZE_IDS) hazes[id] = makeHaze(cuts[id]);
-    await buildWisp();
-    buildBillows();
+    // These read pixels, which browsers refuse when the page is opened as a file (file://).
+    // Then the geyser runs without the extra idle wisps and the swelling billows.
+    try { await buildWisp(); buildBillows(); } catch { wispSprite = null; billowSprites = []; }
     loaded = true;
   }
 
@@ -501,7 +502,7 @@ OF.Geyser = (() => {
   }
 
   // ---------- playback ----------
-  let t = 0, playing = false, speed = 1, planName = 'demo', lastPhase = 'idle';
+  let t = 0, playing = false, speed = 1, rush = 1, planName = 'demo', lastPhase = 'idle';
   const dieStart = () => plan.pre + plan.rise + plan.full;
   function markFired() {
     splashes.forEach((s) => (s.fired = t > s.t));
@@ -513,7 +514,15 @@ OF.Geyser = (() => {
   }
   function start(name) {
     if (name && name !== planName) setPlan(name);
-    t = 0.001; markFired(); playing = true;
+    t = 0.001; markFired(); playing = true; rush = 1;
+  }
+  // Cut an eruption short: skip to where the column starts to fall, then play the rest fast.
+  function windDown() {
+    if (!playing) return;
+    const k = phaseAt(t).k;
+    if (k === 'pre') seek(total());
+    else if (k === 'rise' || k === 'full') seek(dieStart());
+    rush = 4.5;
   }
   function seek(v) { t = clamp(v, 0, total()); markFired(); }
 
@@ -522,15 +531,15 @@ OF.Geyser = (() => {
   function tick(dt) {
     clockT += dt;
     if (playing) {
-      t += dt * speed;
-      if (t >= total()) { t = total(); playing = false; }
+      t += dt * speed * rush;
+      if (t >= total()) { t = total(); playing = false; rush = 1; }
     }
     const S = stateAt(t < total() ? t : 0);
     if (playing) {
       for (const s of splashes) if (!s.fired && t >= s.t) { s.fired = true; burst(s.z); }
       for (const s of sputters) if (!s.fired && t >= dieStart() + s.t) { s.fired = true; burst(s.z); }
     }
-    stepFx(dt * (playing ? speed : 1), S);
+    stepFx(dt * (playing ? speed * rush : 1), S);
     paint(S);
     info.phase = S.phase; info.p = S.p;
     info.level = S.phase === 'pre' ? 0 : clamp(S.jet / (JET04 + 60), 0, 1);
@@ -552,7 +561,7 @@ OF.Geyser = (() => {
 
   buildEvents();
   const api = {
-    PLANS, LABEL, mount, fit, start, seek, setPlan, tick, puff, warm, vent, onPhase: null,
+    PLANS, LABEL, mount, fit, start, windDown, seek, setPlan, tick, puff, warm, vent, onPhase: null,
     pause() { playing = false; },
     resume() { if (t > 0 && t < total()) playing = true; else start(); },
     get ready() { return ready; },

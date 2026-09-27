@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Steam Message Test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,500;1,400&family=Alegreya+Sans:wght@400;500;700&family=Cormorant+Garamond:ital,wght@0,500;1,600&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  /* Test bench for js/steam-message.js over the idle geyser. */
+  #msgs { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  .bench {
+    position: fixed; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+    max-width: 720px; margin: 0 auto; padding: 10px 14px 12px;
+    background: rgba(24,15,7,.82); border-radius: 6px; color: var(--cream);
+    display: grid; gap: 8px; font-size: 14px;
+  }
+  .bench .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .bench button { cursor: pointer; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(236,217,170,.5); background: rgba(236,217,170,.18); color: var(--cream); }
+  .bench select { background: #2a1c0e; color: var(--cream); border: 1px solid rgba(236,217,170,.4); border-radius: 4px; padding: 3px 6px; }
+  .bench label { display: inline-flex; align-items: center; gap: 6px; color: var(--cream-dim); }
+  .bench .stage { font-weight: 700; letter-spacing: .1em; text-transform: uppercase; min-width: 11em; }
+  .bench .clock { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--cream-dim); }
+  .bench input[type=range] { width: 100%; accent-color: var(--ochre); }
+</style>
+</head>
+<body>
+<div id="scene" role="img" aria-label="Old Faithful steaming quietly"></div>
+<div id="msgs"></div>
+
+<div class="bench">
+  <div class="row">
+    <span class="stage" id="stage">Loading…</span>
+    <button type="button" id="send">Send a message</button>
+    <button type="button" id="pause">Pause</button>
+    <label for="speed">Speed
+      <select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select>
+    </label>
+    <label for="auto"><input type="checkbox" id="auto" checked> Keep sending</label>
+    <span class="clock" id="clock">–</span>
+  </div>
+  <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Message timeline">
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/geyser.js"></script>
+<script src="js/steam-message.js"></script>
+<script>
+(() => {
+  const G = OF.Geyser, M = OF.SteamMessage;
+  const $ = (id) => document.getElementById(id);
+  const layer = $('msgs'), bench = document.querySelector('.bench');
+  // Test hook: #w=<px>&h=<px> squeezes the scene into a phone-sized box at the top left.
+  const box = location.hash.match(/w=(\d+)&h=(\d+)/);
+  if (box) for (const el of [$('scene'), layer]) Object.assign(el.style, { right: 'auto', bottom: 'auto', width: box[1] + 'px', height: box[2] + 'px' });
+  if (box) Object.assign(bench.style, { right: 'auto', width: (box[1] - 32) + 'px', top: (box[2] - 150) + 'px', bottom: 'auto' });
+  let msg = null, paused = false, speed = 1, factI = Math.floor(Math.random() * OF.FACTS.length), gap = 0;
+
+  G.mount($('scene'), { inset: () => bench.offsetHeight + 16 });
+  addEventListener('resize', () => { G.fit(); if (msg) msg.layout(); });
+  const opts = { layer, vent: () => G.vent(), safe: () => ({ top: 16, bottom: bench.offsetHeight + 32 }) };
+
+  function send() {
+    if (!M.ready) return;
+    if (msg) msg.remove();
+    msg = M.create(OF.FACTS[factI++ % OF.FACTS.length], opts);
+    paused = false; $('pause').textContent = 'Pause';
+  }
+  $('send').addEventListener('click', send);
+  $('pause').addEventListener('click', () => { paused = !paused; $('pause').textContent = paused ? 'Resume' : 'Pause'; });
+  $('speed').addEventListener('change', () => (speed = +$('speed').value));
+  $('scrub').addEventListener('input', () => { if (msg) { msg.seek($('scrub').value / 1000 * msg.total); paused = true; $('pause').textContent = 'Resume'; } });
+
+  const stageAt = (m) => {
+    const t = m.t, T = M.T, tEvap = m.total - T.evap;
+    if (t >= tEvap) return 'Evaporating';
+    if (t >= T.grow) return 'Holding the message';
+    return 'Rising';
+  };
+
+  let last = performance.now();
+  function frame(ts) {
+    const dt = Math.min(0.1, (ts - last) / 1000); last = ts;
+    G.tick(dt);
+    if (msg && !paused) msg.update(dt * speed);
+    if (msg && msg.done) { msg = null; gap = 2.5; }
+    if (!msg && $('auto').checked && M.ready) { gap -= dt; if (gap <= 0) send(); }
+    $('stage').textContent = msg ? stageAt(msg) : 'Waiting';
+    $('clock').textContent = msg ? `${msg.t.toFixed(1)} / ${msg.total.toFixed(1)} s` : '–';
+    if (msg && document.activeElement !== $('scrub')) $('scrub').value = Math.round(msg.t / msg.total * 1000);
+    requestAnimationFrame(frame);
+  }
+
+  // Test hooks: #m=<seconds> shows a message frozen at that moment; f=<n> picks the fact.
+  const hook = location.hash.match(/m=([\d.]+)/);
+  const pick = location.hash.match(/f=(\d+)/);
+  if (pick) factI = +pick[1];
+  Promise.all([G.ready, M.load()]).then(() => {
+    M.ready = true;
+    if (hook) { send(); msg.seek(+hook[1]); paused = true; $('auto').checked = false; }
+  });
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

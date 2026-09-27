@@ -16,10 +16,10 @@
 <div id="grain" aria-hidden="true"></div>
 <div id="fx" aria-hidden="true"></div>
 
-<header class="plaque">
-  <p class="plaque-eyebrow">Upper Geyser Basin · Yellowstone</p>
+<header class="title">
+  <p class="title-eyebrow">Upper Geyser Basin · Yellowstone</p>
   <h1>Old Faithful</h1>
-  <p class="plaque-clock">Park time <span id="ysClock">--</span></p>
+  <p class="title-clock">Park time <span id="ysClock">--</span></p>
 </header>
 
 <footer class="bar">
@@ -28,7 +28,7 @@
     <p class="countdown" id="countdown" aria-live="off">--:--</p>
     <div class="next-meta">
       <p class="meta-main" id="predLine">Loading prediction…</p>
-      <p class="meta-sub"><span id="localLine" hidden></span><span class="status" id="status" data-state="idle"><span class="dot" aria-hidden="true"></span><span id="statusText"></span></span></p>
+      <p class="meta-sub"><span class="status" id="status" data-state="idle" tabindex="0"><span class="dot" aria-hidden="true"></span><span id="statusText"></span><span class="tip" id="statusTip" role="tooltip"></span></span></p>
     </div>
   </section>
 
@@ -44,7 +44,7 @@
   </div>
 
   <div class="actions">
-    <button type="button" class="btn-hurry" id="blow">Hurry it up, geyser</button>
+    <button type="button" class="btn-hurry" id="blow">Hurry it up, you old geezer!</button>
     <button type="button" class="btn-text" id="sound" aria-pressed="false">Sound off</button>
     <button type="button" class="btn-text" id="notesBtn" aria-expanded="false" aria-controls="notes">Field notes<span class="count" id="notesCount" hidden></span></button>
   </div>
@@ -65,6 +65,7 @@
 <script src="js/data.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/geyser.js"></script>
+<script src="js/steam-message.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
