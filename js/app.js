@@ -208,7 +208,7 @@
     if (phase === 'idle') {
       eruption = null;
       setBlow(BLOW.start, true);
-      Tri.next = performance.now() / 1000 + 4;
+      Tri.next = Math.max(Tri.next, performance.now() / 1000 + 15);   // a breather after an eruption
       if (e.kind === 'live') refreshPrediction();
       renderSign(true);
       return;
@@ -238,6 +238,9 @@
   // Each fact rises out of the vent in a faint cloud of steam (js/steam-message.js).
   // Animal carriers come back with the animal art.
   const M = OF.SteamMessage;
+  // The facts are spread across the ~90 minutes between eruptions: one starts about every 86 s
+  // (59 facts over ~85 quiet minutes), give or take a little so it doesn't feel mechanical.
+  const FACT_EVERY = 86, FACT_JITTER = 12;
   const Tri = { active: null, next: performance.now() / 1000 + 4, seen: new Set(), ready: false };
   let order = shuffle(OF.FACTS.map((_, i) => i));
   const notes = [];
@@ -265,6 +268,7 @@
     const fact = pickFact();
     logNote(fact);
     Tri.active = M.create(fact, msgOpts);
+    Tri.next = performance.now() / 1000 + FACT_EVERY + rand(-FACT_JITTER, FACT_JITTER);
   }
 
   function clearTrivia() {
@@ -278,10 +282,7 @@
       return;
     }
     a.update(dt);
-    if (a.done) {
-      Tri.active = null;
-      Tri.next = now + rand(3, 6);
-    }
+    if (a.done) Tri.active = null;
   }
 
   // ---------- field notes ----------
