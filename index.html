@@ -8,7 +8,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,500;1,400;1,500&family=Cormorant+Garamond:ital,wght@0,500;1,600&family=Alegreya+Sans:wght@400;500;700&family=Big+Shoulders+Display:wght@700;800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,500;1,400;1,500;1,600&family=Cormorant+Garamond:ital,wght@0,500;1,600&family=Alegreya+Sans:wght@400;500;700&family=Big+Shoulders+Display:wght@700;800;900&display=swap">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -51,13 +51,18 @@
 </footer>
 
 <aside class="notes" id="notes" hidden aria-labelledby="notesTitle">
-  <div class="notes-head">
-    <h2 id="notesTitle">Field notes</h2>
-    <button type="button" class="notes-close" id="notesClose" aria-label="Close field notes">Close</button>
+  <header class="notes-head">
+    <div>
+      <p class="notes-eyebrow">Upper Geyser Basin</p>
+      <h2 id="notesTitle">Field notes</h2>
+    </div>
+    <button type="button" class="notes-close" id="notesClose" aria-label="Close field notes">×</button>
+  </header>
+  <div class="notes-body" id="notesBody">
+    <p class="notes-empty" id="notesEmpty">Facts you spot in the steam will collect here.</p>
+    <ol id="notesList"></ol>
+    <p class="notes-foot">Official predictions: <a href="https://www.nps.gov/yell/planyourvisit/geyser-activity.htm" target="_blank" rel="noopener">NPS geyser activity</a> · <a href="https://www.geysertimes.org/geyser.php?id=Old+Faithful" target="_blank" rel="noopener">GeyserTimes</a></p>
   </div>
-  <p class="notes-empty" id="notesEmpty">Facts you spot in the steam will collect here.</p>
-  <ol id="notesList"></ol>
-  <p class="notes-foot">Official predictions: <a href="https://www.nps.gov/yell/planyourvisit/geyser-activity.htm" target="_blank" rel="noopener">NPS geyser activity</a> · <a href="https://www.geysertimes.org/geyser.php?id=Old+Faithful" target="_blank" rel="noopener">GeyserTimes</a></p>
 </aside>
 
 <div class="sr-only" id="announce" aria-live="polite"></div>

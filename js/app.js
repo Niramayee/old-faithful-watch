@@ -290,21 +290,33 @@
   function logNote(fact) {
     announce(`${fact.c}: ${fact.t}`);
     if (notes.includes(fact)) return;
-    notes.unshift(fact);
+    notes.push(fact);
     $('notesCount').textContent = notes.length;
     $('notesCount').hidden = false;
     $('notesEmpty').hidden = true;
+    // numbered in the order they were spotted: 01, 02, …
     const li = document.createElement('li');
+    const num = document.createElement('span');
+    num.className = 'num';
+    num.textContent = String(notes.length).padStart(2, '0');
+    const body = document.createElement('div');
     const cat = document.createElement('span');
     cat.className = 'cat';
     cat.textContent = fact.c;
-    li.append(cat, document.createTextNode(fact.t));
-    notesList.prepend(li);
+    const p = document.createElement('p');
+    p.textContent = fact.t;
+    body.append(cat, p);
+    li.append(num, body);
+    notesList.append(li);
   }
   function setNotes(open) {
     notesPanel.hidden = !open;
     notesBtn.setAttribute('aria-expanded', String(open));
-    if (open) $('notesClose').focus(); else notesBtn.focus();
+    if (open) {
+      const b = $('notesBody');
+      b.scrollTop = b.scrollHeight;   // newest at the bottom
+      $('notesClose').focus();
+    } else notesBtn.focus();
   }
   notesBtn.addEventListener('click', () => setNotes(notesPanel.hidden));
   $('notesClose').addEventListener('click', () => setNotes(false));
@@ -360,6 +372,8 @@
     return inset;
   }
   G.mount($('scene'), { inset: dockInset });
+  // Test hook: #notes fills in a few field notes and opens the panel.
+  if (location.hash.includes('notes')) { for (let i = 0; i < 6; i++) logNote(pickFact()); setNotes(true); }
   // Test hook: #erupt=<seconds> starts a replay and jumps that far into it.
   const jump = location.hash.match(/erupt=([\d.]+)/);
   if (jump) G.ready.then(() => { startEruption('demo'); G.seek(+jump[1]); });
