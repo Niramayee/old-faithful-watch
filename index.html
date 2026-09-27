@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Old Faithful Watch</title>
+<meta name="description" content="An illustrated live view of Old Faithful from the viewing benches, with a countdown to the next predicted eruption and trivia about Yellowstone.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,500;1,400;1,500&family=Alegreya+Sans:wght@400;500;700&family=Big+Shoulders+Display:wght@700;800;900&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="scene" role="img" aria-label="Illustrated view of Old Faithful geyser from the viewing benches, with lodgepole pines, grazing bison, and ravens overhead."></canvas>
+<div id="fx" aria-hidden="true"></div>
+
+<header class="plaque">
+  <p class="plaque-eyebrow">Upper Geyser Basin · Yellowstone</p>
+  <h1>Old Faithful</h1>
+  <p class="plaque-clock">Park time <span id="ysClock">--</span></p>
+</header>
+
+<div class="dock">
+  <section class="sign" aria-labelledby="signLabel">
+    <p class="sign-label" id="signLabel">Next eruption</p>
+    <p class="countdown" id="countdown" aria-live="off">--:--</p>
+    <p class="sign-line" id="predLine">Loading prediction…</p>
+    <p class="sign-line sign-line-dim" id="localLine" hidden></p>
+    <p class="pill" id="status" data-state="idle">Steaming quietly</p>
+    <p class="sign-source" id="source"></p>
+  </section>
+
+  <div class="controls">
+    <button type="button" class="btn-blow" id="blow">I can’t wait, blow it up now</button>
+    <div class="controls-row">
+      <button type="button" class="btn-wood" id="sound" aria-pressed="false">Sound: off</button>
+      <label class="sky-pick" for="sky">
+        <span>Sky</span>
+        <select id="sky">
+          <option value="live">Park time</option>
+          <option value="6.5">Dawn</option>
+          <option value="10">Morning</option>
+          <option value="13">Midday</option>
+          <option value="18.6">Golden hour</option>
+          <option value="19.6">Dusk</option>
+          <option value="23">Night</option>
+        </select>
+      </label>
+      <button type="button" class="btn-wood" id="notesBtn" aria-expanded="false" aria-controls="notes"><span class="wide-only">Field notes</span><span class="narrow-only">Notes</span> (<span id="notesCount">0</span>)</button>
+    </div>
+  </div>
+</div>
+
+<aside class="notes" id="notes" hidden aria-labelledby="notesTitle">
+  <div class="notes-head">
+    <h2 id="notesTitle">Field notes</h2>
+    <button type="button" class="notes-close" id="notesClose" aria-label="Close field notes">Close</button>
+  </div>
+  <p class="notes-empty" id="notesEmpty">Facts you spot in the steam, from the ravens, and from the bison will collect here.</p>
+  <ol id="notesList"></ol>
+  <p class="notes-foot">Official predictions: <a href="https://www.nps.gov/yell/planyourvisit/geyser-activity.htm" target="_blank" rel="noopener">NPS geyser activity</a> · <a href="https://www.geysertimes.org/geyser.php?id=Old+Faithful" target="_blank" rel="noopener">GeyserTimes</a></p>
+</aside>
+
+<div class="sr-only" id="announce" aria-live="polite"></div>
+
+<script src="js/data.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "name": "old-faithful-watch",
+  "private": true,
+  "description": "Illustrated live view of Old Faithful with eruption countdown and Yellowstone trivia",
+  "engines": { "node": ">=18" }
+}

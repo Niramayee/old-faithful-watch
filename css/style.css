@@ -1,0 +1,423 @@
+/* Old Faithful Watch
+   The scene is drawn on canvas; everything here is the park-sign UI laid over it.
+   Single look on purpose: the sky follows Yellowstone time, so there is no light/dark theme. */
+
+:root {
+  color-scheme: dark;
+  --wood: #5b3a22;
+  --wood-top: #66432a;
+  --wood-edge: #2e1c10;
+  --routed: #f2e3bf;
+  --routed-dim: #d6c299;
+  --sulfur: #e9b73c;
+  --sulfur-hi: #f3c95a;
+  --ink: #1d2622;
+  --paper: #f4ecd6;
+  --paper-edge: #b99c68;
+  --steam: rgba(248, 250, 251, 0.9);
+  --night: #0d1426;
+  --erupt: #8fd3e8;
+
+  --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --body: "Alegreya Sans", "Gill Sans", "Trebuchet MS", sans-serif;
+  --serif: "Alegreya", Georgia, "Times New Roman", serif;
+
+  --gutter: 16px;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  background: var(--night);
+  color: var(--routed);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.4;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+[hidden] { display: none !important; }
+
+#scene {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#fx {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- routed-wood signs ---------- */
+
+.plaque, .sign, .btn-wood, .sky-pick {
+  background:
+    repeating-linear-gradient(90deg, rgba(0,0,0,.07) 0 2px, transparent 2px 11px),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 23px),
+    linear-gradient(180deg, var(--wood-top), var(--wood));
+  border: 2px solid var(--wood-edge);
+  color: var(--routed);
+  text-shadow: 0 1px 0 rgba(0,0,0,.5);
+}
+
+.plaque, .sign {
+  border-radius: 7px;
+  box-shadow:
+    inset 0 0 0 5px transparent,
+    inset 0 0 0 6px rgba(242,227,191,.45),
+    0 10px 24px rgba(0,0,0,.35);
+}
+
+.plaque {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + var(--gutter));
+  left: var(--gutter);
+  padding: 12px 18px 12px;
+  display: grid;
+  gap: 2px;
+}
+
+.plaque h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: clamp(26px, 3.2vw, 38px);
+  line-height: .95;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.plaque-eyebrow, .plaque-clock, .sign-label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--routed-dim);
+}
+
+.plaque-clock span { color: var(--routed); font-variant-numeric: tabular-nums; }
+
+/* ---------- dock ---------- */
+
+.dock {
+  position: fixed;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--gutter));
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: none;
+}
+.dock > * { pointer-events: auto; }
+
+.sign {
+  padding: 14px 20px 14px;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  width: min(330px, 100%);
+}
+
+.countdown {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: clamp(44px, 6vw, 68px);
+  line-height: 1;
+  letter-spacing: .02em;
+  font-variant-numeric: tabular-nums;
+}
+.countdown.is-word { font-size: clamp(36px, 4.6vw, 52px); text-transform: uppercase; }
+
+.sign-line { margin: 0; font-size: 15px; font-variant-numeric: tabular-nums; }
+.sign-line-dim { color: var(--routed-dim); font-size: 13px; }
+
+.sign-source {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--routed-dim);
+  line-height: 1.35;
+}
+
+.pill {
+  justify-self: start;
+  margin: 6px 0 0;
+  padding: 3px 10px 3px 22px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--routed);
+  text-shadow: none;
+  position: relative;
+}
+.pill::before {
+  content: "";
+  position: absolute;
+  left: 9px; top: 50%;
+  width: 7px; height: 7px;
+  margin-top: -3.5px;
+  border-radius: 50%;
+  background: #7d8b86;
+}
+.pill[data-state="window"] { background: var(--sulfur); }
+.pill[data-state="window"]::before { background: var(--ink); animation: blink 1.2s steps(2) infinite; }
+.pill[data-state="erupting"] { background: var(--erupt); }
+.pill[data-state="erupting"]::before { background: #0f4a5c; animation: blink .6s steps(2) infinite; }
+.pill[data-state="after"] { background: #d9dde0; }
+
+@keyframes blink { 50% { opacity: .2; } }
+
+/* ---------- controls ---------- */
+
+.controls {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+button, select { font: inherit; color: inherit; }
+
+.btn-blow {
+  cursor: pointer;
+  padding: 13px 20px 12px;
+  border: 2px solid #2a1d0f;
+  border-radius: 7px;
+  background: var(--sulfur);
+  color: var(--ink);
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  box-shadow: 0 4px 0 #2a1d0f, 0 10px 22px rgba(0,0,0,.35);
+  transition: transform .08s ease, box-shadow .08s ease, background .2s;
+}
+.btn-blow:hover:not(:disabled) { background: var(--sulfur-hi); }
+.btn-blow:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 #2a1d0f, 0 6px 16px rgba(0,0,0,.3); }
+.btn-blow:disabled { cursor: default; background: #c9c1a8; color: #4b4a42; }
+
+.btn-wood, .sky-pick {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  box-shadow: 0 6px 16px rgba(0,0,0,.3);
+}
+.btn-wood[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--sulfur), 0 6px 16px rgba(0,0,0,.3); }
+
+.sky-pick { display: inline-flex; align-items: center; gap: 6px; }
+.sky-pick select {
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  padding: 0 2px;
+}
+.sky-pick select option { background: var(--wood); color: var(--routed); }
+
+:focus-visible { outline: 3px solid var(--sulfur); outline-offset: 3px; }
+.sky-pick:focus-within { outline: 3px solid var(--sulfur); outline-offset: 3px; }
+.sky-pick select:focus-visible { outline: none; }
+
+/* ---------- field notes ---------- */
+
+.notes {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + var(--gutter));
+  right: var(--gutter);
+  width: min(380px, calc(100% - 2 * var(--gutter)));
+  max-height: min(70vh, 620px);
+  overflow: auto;
+  padding: 16px 20px 18px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--paper-edge);
+  border-radius: 4px;
+  box-shadow: 0 16px 40px rgba(0,0,0,.4);
+}
+.notes-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.notes h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.notes-close {
+  cursor: pointer;
+  border: 0;
+  background: none;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #6b4a2c;
+}
+.notes ol { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.notes li { font-family: var(--serif); font-size: 16px; line-height: 1.45; border-top: 1px dashed var(--paper-edge); padding-top: 10px; }
+.notes li .cat, .note .cat {
+  display: block;
+  font-family: var(--body);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #8a5a22;
+}
+.notes-empty { margin: 10px 0 0; font-family: var(--serif); font-style: italic; color: #5d5a4d; }
+.notes-foot { margin: 16px 0 0; font-size: 13px; color: #5d5a4d; }
+.notes-foot a { color: #6b4a2c; }
+
+/* ---------- trivia carriers (positioned by JS) ---------- */
+
+.note {
+  position: absolute;
+  left: 0; top: 0;
+  will-change: transform, opacity;
+  color: var(--ink);
+}
+.note p {
+  margin: 2px 0 0;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 17px;
+  line-height: 1.35;
+  text-wrap: pretty;
+}
+
+/* steam: a soft cloud whose edges feather into the plume */
+.note.steam .card {
+  width: min(330px, 78vw);
+  padding: 20px 26px 22px;
+  text-align: center;
+  background: radial-gradient(ellipse at 50% 50%, rgba(250,251,252,.95) 0%, rgba(246,248,250,.9) 55%, rgba(246,248,250,.72) 100%);
+  border-radius: 48% 52% 46% 54% / 58% 50% 50% 42%;
+  box-shadow: 0 0 22px 14px rgba(246,248,250,.62), 0 0 60px 30px rgba(246,248,250,.28);
+}
+.note.steam .cat { color: #5b6a70; }
+
+/* raven banner: a cloth pennant with swallowtail ends */
+.note.raven .card {
+  width: min(300px, 70vw);
+  padding: 10px 30px 12px 22px;
+  background: linear-gradient(180deg, #f6eed8, #eadcb8);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 16px) 50%, 100% 100%, 0 100%);
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,.25));
+  animation: flutter 1.4s ease-in-out infinite;
+  transform-origin: 100% 0;
+}
+.note.raven.to-left .card {
+  padding: 10px 22px 12px 30px;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 16px 50%);
+  transform-origin: 0 0;
+}
+.note.raven p { font-size: 16px; }
+@keyframes flutter {
+  0%, 100% { transform: skewY(0deg) rotate(0deg); }
+  30% { transform: skewY(-1.8deg) rotate(.6deg); }
+  65% { transform: skewY(1.2deg) rotate(-.5deg); }
+}
+
+/* bison scroll: parchment that unrolls upward out of the dirt */
+.note.scroll .card {
+  position: relative;
+  width: min(290px, 74vw);
+  padding: 16px 20px 16px;
+  background: linear-gradient(90deg, #e4d3a8, var(--paper) 12%, var(--paper) 88%, #e4d3a8);
+  animation: unroll .9s cubic-bezier(.2,.8,.2,1) both;
+  transform-origin: 50% 100%;
+}
+.note.scroll .card::before, .note.scroll .card::after {
+  content: "";
+  position: absolute;
+  left: -8px; right: -8px;
+  height: 11px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #a07a48, #6d4b27);
+  box-shadow: 0 2px 3px rgba(0,0,0,.3);
+}
+.note.scroll .card::before { top: -6px; }
+.note.scroll .card::after { bottom: -6px; }
+@keyframes unroll {
+  from { transform: translateY(40px) scaleY(.08); opacity: 0; }
+  40% { opacity: 1; }
+  to { transform: translateY(0) scaleY(1); opacity: 1; }
+}
+
+.note.out .card { opacity: 0; transition: opacity .7s ease; }
+
+/* ---------- small screens ---------- */
+
+@media (max-width: 720px) {
+  .dock { flex-direction: column; align-items: stretch; gap: 8px; }
+  .sign {
+    width: 100%;
+    grid-template-columns: auto 1fr;
+    column-gap: 14px;
+    row-gap: 2px;
+    padding: 10px 14px 10px;
+  }
+  .sign-label, .sign-source { grid-column: 1 / -1; }
+  .countdown { grid-row: 2 / span 2; align-self: center; font-size: 42px; }
+  .countdown.is-word { font-size: 30px; }
+  .sign-line { font-size: 14px; align-self: end; }
+  #localLine { display: none; }
+  .pill { margin: 0; align-self: start; font-size: 11px; }
+  .sign-source { font-size: 11px; margin-top: 4px; }
+  .controls { justify-items: stretch; gap: 6px; }
+  .controls-row { flex-wrap: nowrap; justify-content: stretch; gap: 6px; }
+  .controls-row > * { flex: 1 1 0; min-width: 0; justify-content: center; text-align: center; padding: 7px 6px; font-size: 12px; box-shadow: none; }
+  .sky-pick select { max-width: 7.5em; }
+  .btn-blow { font-size: 18px; padding: 10px 14px 9px; }
+  .plaque { padding: 8px 12px; }
+  .plaque h1 { font-size: 24px; }
+  .note p { font-size: 15px; }
+  .wide-only { display: none; }
+}
+@media (min-width: 721px) { .narrow-only { display: none; } }
+
+@media (max-height: 560px) and (min-width: 721px) {
+  .sign-source, #localLine { display: none; }
+  .countdown { font-size: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .note.raven .card { animation: none; }
+  .note.scroll .card { animation-duration: .01s; }
+  .pill::before { animation: none !important; }
+}
