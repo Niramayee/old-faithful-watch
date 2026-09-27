@@ -1,0 +1,96 @@
+<!doctype html>
+<!-- Builds the plume masks in assets/geyser/ by diffing each frame against 00-idle.
+     Run tools/make_masks.sh (it serves the project, opens this page headless and saves the results). -->
+<meta charset="utf-8">
+<title>make masks</title>
+<pre id="out"></pre>
+<script>
+const W = 2384, H = 1024;
+// Generous search box per frame: [x0, y0, x1, y1] in art units. Only differences inside it count.
+const FRAMES = {
+  '02-rising':         [1000, 360, 1460, 800],
+  '03-tall-jet':       [1040,  20, 1420, 800],
+  '04-full':           [ 940,  10, 1560, 800],
+  '05-declining':      [1000, 120, 2150, 800],
+  '06-collapse-steam': [1060, 240, 2120, 800],
+  '07-steam-fading':   [ 940, 180, 2040, 800]
+};
+const THRESH = 34, ERODE = 3, DILATE = 8, BLUR = 4;
+
+const load = (src) => new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = src; });
+function pixels(img) {
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d'); x.drawImage(img, 0, 0, W, H);
+  return x.getImageData(0, 0, W, H).data;
+}
+function minMax(a, w, h, r, useMin) {
+  const t = new Float32Array(a.length), o = new Float32Array(a.length);
+  const pick = useMin ? Math.min : Math.max, start = useMin ? Infinity : -Infinity;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let v = start; for (let k = -r; k <= r; k++) v = pick(v, a[y * w + Math.min(w - 1, Math.max(0, x + k))]); t[y * w + x] = v;
+  }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let v = start; for (let k = -r; k <= r; k++) v = pick(v, t[Math.min(h - 1, Math.max(0, y + k)) * w + x]); o[y * w + x] = v;
+  }
+  return o;
+}
+function boxBlur(a, w, h, r) {
+  let s = a;
+  for (let pass = 0; pass < 2; pass++) {
+    const t = new Float32Array(s.length), o = new Float32Array(s.length);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let acc = 0; for (let k = -r; k <= r; k++) acc += s[y * w + Math.min(w - 1, Math.max(0, x + k))]; t[y * w + x] = acc / (2 * r + 1);
+    }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let acc = 0; for (let k = -r; k <= r; k++) acc += t[Math.min(h - 1, Math.max(0, y + k)) * w + x]; o[y * w + x] = acc / (2 * r + 1);
+    }
+    s = o;
+  }
+  return s;
+}
+function toPNG(full) {
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d'); const id = x.createImageData(W, H);
+  for (let i = 0; i < W * H; i++) { id.data[i * 4] = id.data[i * 4 + 1] = id.data[i * 4 + 2] = 255; id.data[i * 4 + 3] = Math.round(Math.min(1, full[i]) * 255); }
+  x.putImageData(id, 0, 0);
+  return c.toDataURL('image/png');
+}
+
+(async () => {
+  const out = { masks: {}, stats: {} };
+  const base = pixels(await load('../assets/geyser/00-idle.svg'));
+  for (const [name, [x0, y0, x1, y1]] of Object.entries(FRAMES)) {
+    const d = pixels(await load(`../assets/geyser/${name}.svg`));
+    const P = 30, cx0 = Math.max(0, x0 - P), cy0 = Math.max(0, y0 - P), cx1 = Math.min(W, x1 + P), cy1 = Math.min(H, y1 + P);
+    const w = cx1 - cx0, h = cy1 - cy0, m = new Float32Array(w * h);
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+      const i = (y * W + x) * 4;
+      const v = (Math.abs(d[i] - base[i]) + Math.abs(d[i + 1] - base[i + 1]) + Math.abs(d[i + 2] - base[i + 2])) / 3;
+      m[(y - cy0) * w + (x - cx0)] = v > THRESH ? 1 : 0;
+    }
+    let o = minMax(m, w, h, ERODE, true);   // drop thin re-tracing slivers
+    o = minMax(o, w, h, DILATE, false);     // grow back, plus a margin
+    o = boxBlur(o, w, h, BLUR);             // soft edge
+    const full = new Float32Array(W * H);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) full[(y + cy0) * W + x + cx0] = o[y * w + x];
+    out.masks[name] = toPNG(full);
+    // Width of the plume every 20 px, to find where the water column ends and the cloud begins.
+    const rows = [];
+    for (let y = 0; y < H; y += 20) {
+      let lo = -1, hi = -1;
+      for (let x = 0; x < W; x++) if (full[y * W + x] > 0.5) { if (lo < 0) lo = x; hi = x; }
+      if (lo >= 0) rows.push([y, lo, hi]);
+    }
+    out.stats[name] = rows;
+  }
+  // The vent: colours straight down the cone at a few x positions.
+  out.stats.coneColumns = {};
+  for (const x of [1180, 1195, 1210, 1225, 1240]) {
+    const col = [];
+    for (let y = 640; y <= 800; y += 5) { const i = (y * W + x) * 4; col.push([y, base[i], base[i + 1], base[i + 2]]); }
+    out.stats.coneColumns[x] = col;
+  }
+  document.getElementById('out').textContent = JSON.stringify(out);
+  document.title = 'done';
+})();
+</script>

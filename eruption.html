@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Eruption Test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;700&family=Big+Shoulders+Display:wght@800&display=swap">
+<style>
+  /* Standalone test bench for the geyser animation, built from the Recraft frames in assets/geyser/.
+     Only two things are on screen: the still background and ONE canvas where all motion is painted. */
+  :root {
+    color-scheme: dark;
+    --panel: #13283a;
+    --panel-edge: #0a1622;
+    --cream: #f3e6c4;
+    --cream-dim: #c9bb96;
+    --ochre: #e2a23b;
+    --ink: #14212b;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: #1b1410; color: var(--cream); font: 15px/1.4 "Alegreya Sans", "Trebuchet MS", sans-serif; overflow: hidden; }
+
+  #view { position: fixed; inset: 0; overflow: hidden; }
+
+  .panel {
+    position: fixed; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+    max-width: 780px; margin: 0 auto; padding: 12px 16px 14px;
+    background: linear-gradient(180deg, #183247, var(--panel));
+    border: 2px solid var(--panel-edge); border-radius: 3px;
+    box-shadow: inset 0 0 0 4px var(--panel), inset 0 0 0 5px rgba(243,230,196,.55), 0 10px 24px rgba(0,0,0,.35);
+    display: grid; gap: 10px;
+  }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .phase { font: 800 22px/1 "Big Shoulders Display", "Arial Narrow", sans-serif; letter-spacing: .06em; text-transform: uppercase; min-width: 9em; }
+  .clock { font-variant-numeric: tabular-nums; color: var(--cream-dim); margin-left: auto; }
+  button, select { font: inherit; }
+  button {
+    cursor: pointer; padding: 7px 14px; border-radius: 3px; border: 2px solid #2a1d0f;
+    background: var(--ochre); color: var(--ink); font-weight: 700; letter-spacing: .04em;
+  }
+  button.secondary { background: transparent; color: var(--cream); border-color: rgba(243,230,196,.5); }
+  label { display: inline-flex; align-items: center; gap: 6px; color: var(--cream-dim); }
+  select { background: var(--panel); color: var(--cream); border: 1px solid rgba(243,230,196,.4); border-radius: 3px; padding: 4px 6px; }
+  input[type=range] { width: 100%; accent-color: var(--ochre); }
+  :focus-visible { outline: 3px solid var(--ochre); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div id="view" aria-label="Old Faithful eruption animation test">
+</div>
+
+<div class="panel">
+  <div class="row">
+    <span class="phase" id="phase" aria-live="polite">Loading…</span>
+    <button type="button" id="play">Erupt</button>
+    <button type="button" class="secondary" id="stop">Reset</button>
+    <label for="plan">Length
+      <select id="plan">
+        <option value="demo">Short (~2 min)</option>
+        <option value="live">Real (~4.5 min)</option>
+      </select>
+    </label>
+    <label for="speed">Speed
+      <select id="speed">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="2">2×</option>
+        <option value="4">4×</option>
+      </select>
+    </label>
+    <label for="shim"><input type="checkbox" id="shim" checked> Shimmer</label>
+    <label for="loop"><input type="checkbox" id="loop"> Loop</label>
+    <span class="clock" id="clock">0:00</span>
+  </div>
+  <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Eruption timeline">
+</div>
+
+<script src="js/geyser.js"></script>
+<script>
+// Test bench controls around OF.Geyser.
+(() => {
+  const G = OF.Geyser;
+  const $ = (id) => document.getElementById(id);
+  const ui = { play: $('play'), stop: $('stop'), plan: $('plan'), speed: $('speed'), loop: $('loop'), shim: $('shim'), scrub: $('scrub'), phase: $('phase'), clock: $('clock') };
+  const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  let idleWait = 0;
+
+  function reset() { G.setPlan(ui.plan.value); ui.play.textContent = 'Erupt'; }
+  function start() { if (G.time >= G.total || G.time <= 0) G.start(ui.plan.value); else G.resume(); ui.play.textContent = 'Pause'; }
+
+  ui.play.addEventListener('click', () => { if (G.playing) { G.pause(); ui.play.textContent = 'Resume'; } else start(); });
+  ui.stop.addEventListener('click', reset);
+  ui.plan.addEventListener('change', reset);
+  ui.speed.addEventListener('change', () => (G.speed = +ui.speed.value));
+  ui.shim.addEventListener('change', () => (G.shimmer = ui.shim.checked));
+  ui.scrub.addEventListener('input', () => {
+    G.seek((ui.scrub.value / 1000) * G.total);
+    if (!G.playing) ui.play.textContent = G.time > 0 ? 'Resume' : 'Erupt';
+  });
+  document.addEventListener('keydown', (e) => { if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); ui.play.click(); } });
+
+  G.onPhase = (phase) => {
+    if (phase === 'idle' && G.time >= G.total) {
+      ui.play.textContent = 'Erupt';
+      if (ui.loop.checked) idleWait = 4;
+    }
+  };
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.1, (now - last) / 1000);
+    last = now;
+    if (idleWait > 0) { idleWait -= dt; if (idleWait <= 0) start(); }
+    const info = G.tick(dt);
+    const label = G.loaded ? G.LABEL[info.phase] : 'Loading…';
+    if (ui.phase.textContent !== label) ui.phase.textContent = label;
+    ui.clock.textContent = `${fmt(Math.min(G.time, G.total))} / ${fmt(G.total)}`;
+    if (document.activeElement !== ui.scrub) ui.scrub.value = Math.round((Math.min(G.time, G.total) / G.total) * 1000);
+    requestAnimationFrame(frame);
+  }
+
+  addEventListener('resize', G.fit);
+  // Test hooks: #t=<seconds> jumps the timeline; #warm=<seconds> pre-runs the particles for screenshots.
+  const m = location.hash.match(/t=([\d.]+)/), warm = location.hash.match(/warm=([\d.]+)/);
+  G.mount($('view')).then(() => { if (warm) G.warm(+warm[1]); });
+  if (m) G.seek(+m[1]);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

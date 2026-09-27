@@ -1,23 +1,24 @@
 # Old Faithful Watch
 
-An illustrated, animated view of Old Faithful from the viewing benches in Yellowstone's Upper Geyser Basin.
+An illustrated, animated view of Old Faithful in Yellowstone's Upper Geyser Basin.
 
 - Counts down to the next eruption using the live NPS ranger prediction and plays the eruption when it's due.
-- Between eruptions, trivia drifts up in the steam, trails from a raven's banner, or gets dug up by a bison.
-- The sky follows the current time in Yellowstone (Mountain Time).
+- Between eruptions, trivia drifts up out of the vent in the steam.
 - "I can't wait, blow it up now" plays a shortened eruption at any time.
 - Optional sound (wind, birds, the eruption, applause), all generated in the browser.
 
 ## How it's built
 
-Plain HTML, CSS and JavaScript with no build step. Everything is drawn in code on a `<canvas>`, and there are no image or audio files.
+Plain HTML, CSS and JavaScript with no build step. The geyser is a set of vintage-poster frames (SVG, made in Recraft) in `assets/geyser/`. `js/geyser.js` cuts the steam and water out of each frame when the page loads and animates them on a single `<canvas>` over the still background: a soft reveal as the column rises, a sinking column and drifting cloud as it dies, steam wisps, and water spray. Sound is synthesized, so there are no audio files.
 
 | File | What it does |
 |---|---|
 | `index.html` | Page structure and the park-sign UI |
 | `css/style.css` | Styles for the signs, buttons and trivia carriers |
 | `js/data.js` | Trivia facts and prediction settings: **edit facts here** |
-| `js/scene.js` | Landscape, trees, steam and eruption particles, animals, people |
+| `js/geyser.js` | The geyser: frame cut-outs, eruption timeline, spray and steam |
+| `eruption.html` | Test bench for the eruption alone (play, scrub, speed, loop) |
+| `art/`, `tools/` | Source frames, and the scripts that clean them and build their masks (`python3 tools/prepare_art.py`, then `./tools/make_masks.sh`) |
 | `js/audio.js` | Synthesized sound (Web Audio API) |
 | `js/app.js` | Predictions, countdown, trivia delivery, controls, main loop |
 | `api/prediction.js` | Vercel serverless function that fetches the prediction |
