@@ -497,13 +497,14 @@ button { font: inherit; color: inherit; }
   /* the cloud behind is faint, so the words carry their own soft cream glow */
   text-shadow: 0 0 14px rgba(252,246,234,1), 0 0 7px rgba(252,246,234,.95), 0 0 2px rgba(252,246,234,.95);
 }
-.steam-msg-text p { margin: 3px 0 0; font-family: var(--serif); font-weight: 500; font-size: 1em; line-height: 1.38; text-wrap: balance; }
+/* Cormorant Garamond, like the title and countdown: finer and more elegant than the body serif */
+.steam-msg-text p { margin: 6px 0 0; font-family: var(--numerals); font-weight: 600; font-size: 1.12em; line-height: 1.32; letter-spacing: .005em; text-wrap: balance; }
 .steam-msg-cat {
   display: block;
   font-family: var(--body);
-  font-size: .68em;
-  font-weight: 700;
-  letter-spacing: .14em;
+  font-size: .6em;
+  font-weight: 600;
+  letter-spacing: .26em;
   text-transform: uppercase;
   color: #8a5a22;
 }
