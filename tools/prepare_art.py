@@ -1,5 +1,5 @@
-"""Copy the Recraft geyser frames from art/ into assets/geyser/, and the steam-message wisps into
-assets/wisps/, stripping the embedded C2PA metadata (most of each file's size).
+"""Copy the Recraft geyser frames from art/ into assets/geyser/, the steam-message wisps into
+assets/wisps/ and the ravens into assets/birds/, stripping the embedded C2PA metadata (most of each file's size).
 Run from the project root: python3 tools/prepare_art.py"""
 import re
 from pathlib import Path
@@ -24,3 +24,12 @@ for name, out_name in WISPS.items():
     svg = re.sub(r"<metadata>.*?</metadata>", "", (src / f"{name}.svg").read_text(), flags=re.S)
     (wdst / f"{out_name}.svg").write_text(svg)
     print(f"{name} -> wisps/{out_name}: {len(svg) // 1024} KB")
+
+# The raven that lands: gliding in (Bird 4), flaring to land or take off (Bird 6), standing (Bird 3).
+BIRDS = {"Bird 3": "raven-standing", "Bird 4": "raven-glide", "Bird 6": "raven-flare"}
+bdst = Path("assets/birds")
+bdst.mkdir(parents=True, exist_ok=True)
+for name, out_name in BIRDS.items():
+    svg = re.sub(r"<metadata>.*?</metadata>", "", (src / f"{name}.svg").read_text(), flags=re.S)
+    (bdst / f"{out_name}.svg").write_text(svg)
+    print(f"{name} -> birds/{out_name}: {len(svg) // 1024} KB")

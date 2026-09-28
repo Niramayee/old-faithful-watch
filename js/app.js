@@ -215,6 +215,7 @@
     }
     e.phase = phase;
     const live = e.kind === 'live';
+    if (phase === 'rise' || phase === 'pre') OF.Birds.startle();
     if (phase === 'rise') { announce('Old Faithful is erupting.'); if (live) setBlow('Erupting…', false); }
     if (phase === 'die' && live) setBlow('Winding down…', false);
     if (phase === 'collapse') { if (!e.stopping) Snd.applause(); if (live) setBlow('Settling down…', false); }
@@ -247,7 +248,7 @@
     look() { return this.mode === 'live' ? OF.Palette.lookFor(new Date()) : this.mode; },
     apply() {
       const lk = this.look();
-      G.setLook(lk); M.setLook(lk);
+      G.setLook(lk); M.setLook(lk); OF.Birds.setLook(lk);
       document.documentElement.dataset.look = lk;
       setText($('sky'), `Sky · ${SKY_NAME[this.mode]}`);
       $('sky').setAttribute('aria-label', `Sky: ${SKY_NAME[this.mode]}${this.mode === 'live' ? ` (${lk} at Old Faithful now)` : ''}. Change time of day`);
@@ -398,13 +399,40 @@
     return inset;
   }
   G.mount($('scene'), { inset: dockInset, look: sky.look() });
+  // birds fly in the sky between the title and the mountains
+  OF.Birds.mount($('scene'), {
+    top: () => document.querySelector('.title').getBoundingClientRect().bottom,
+    horizon: () => { const v = G.vent(); return (v.y - 268 * v.scale) / innerHeight; },
+    // art units to screen px (the art is scaled and shifted to fit the window)
+    toScreen: (ax, ay) => { const v = G.vent(); return { x: v.x + (ax - 1215) * v.scale, y: v.y + (ay - 738) * v.scale }; },
+    // a spot on the basin floor beside the geyser (art units), if it isn't hidden by the strip
+    ground: () => {
+      // right of the mound: sand (the left side has a pale pool along the forest edge)
+      const v = G.vent(), ax = 1540 + Math.random() * 260, ay = 768 + Math.random() * 14;
+      const x = v.x + (ax - 1215) * v.scale, y = v.y + (ay - 738) * v.scale;
+      const barTop = Math.min(...[...document.querySelector('.bar').children].map((c) => c.getBoundingClientRect().top));
+      return x > 30 && x < innerWidth - 30 && y < barTop - 16 ? { ax, ay } : null;
+    }
+  });
+  // Test hook: #birds sends a crossing every few seconds.
+  if (location.hash.includes('birds') && !location.hash.includes('birdsnap')) {
+    setInterval(() => OF.Birds.launch(), 3000);
+    const come = () => { if (!OF.Birds.land()) setTimeout(come, 500); };
+    setTimeout(come, 1500);
+  }
+  // #birdsnap: a few crossings already mid-sky (for screenshots)
+  if (location.hash.includes('birdsnap')) {
+    const down = () => (OF.Birds.land() ? OF.Birds.tick(30) : setTimeout(down, 200));   // one raven already down (once its art has loaded)
+    down();
+    for (let i = 0; i < 2; i++) { OF.Birds.launch(); OF.Birds.tick(2.5 + i * 1.3); }
+  }
   sky.apply();
   // Test hook: #notes fills in a few field notes and opens the panel.
   if (location.hash.includes('notes')) { for (let i = 0; i < 6; i++) logNote(pickFact()); setNotes(true); }
   // Test hook: #erupt=<seconds> starts a replay and jumps that far into it.
   const jump = location.hash.match(/erupt=([\d.]+)/);
   if (jump) G.ready.then(() => { startEruption('demo'); G.seek(+jump[1]); });
-  addEventListener('resize', () => { G.fit(); if (Tri.active) Tri.active.layout(); });
+  addEventListener('resize', () => { G.fit(); OF.Birds.fit(); if (Tri.active) Tri.active.layout(); });
   if (window.ResizeObserver) new ResizeObserver(() => G.fit()).observe(dock);   // e.g. fonts arriving
 
   let last = performance.now(), sndT = 0, signT = 0, trigT = 0, clockT = 0;
@@ -413,6 +441,7 @@
     last = ts; clockT += dt;
     const now = ts / 1000;
     const info = G.tick(dt);
+    OF.Birds.tick(dt);
     renderNow(info);
     wind = 0.4 + 0.15 * Math.sin(clockT * 0.07) + 0.08 * Math.sin(clockT * 0.23);
     updateTrivia(dt, now);
