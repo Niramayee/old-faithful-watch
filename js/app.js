@@ -234,6 +234,32 @@
     }
   }
 
+  // ---------- sky: time of day ----------
+  // "Park time" follows the sun at Old Faithful; the others fix a look. Remembered on this device.
+  const SKIES = ['live', 'dawn', 'morning', 'day', 'dusk', 'night'];
+  const SKY_NAME = { live: 'Park time', dawn: 'Dawn', morning: 'Morning', day: 'Day', dusk: 'Dusk', night: 'Night' };
+  const sky = {
+    mode: (() => {
+      const hash = location.hash.match(/sky=(\w+)/);
+      if (hash && SKIES.includes(hash[1])) return hash[1];
+      try { const v = localStorage.getItem('of-sky'); return SKIES.includes(v) ? v : 'live'; } catch { return 'live'; }
+    })(),
+    look() { return this.mode === 'live' ? OF.Palette.lookFor(new Date()) : this.mode; },
+    apply() {
+      const lk = this.look();
+      G.setLook(lk); M.setLook(lk);
+      document.documentElement.dataset.look = lk;
+      setText($('sky'), `Sky · ${SKY_NAME[this.mode]}`);
+      $('sky').setAttribute('aria-label', `Sky: ${SKY_NAME[this.mode]}${this.mode === 'live' ? ` (${lk} at Old Faithful now)` : ''}. Change time of day`);
+    }
+  };
+  $('sky').addEventListener('click', () => {
+    sky.mode = SKIES[(SKIES.indexOf(sky.mode) + 1) % SKIES.length];
+    try { localStorage.setItem('of-sky', sky.mode); } catch { /* storage unavailable */ }
+    sky.apply();
+  });
+  setInterval(() => { if (sky.mode === 'live') sky.apply(); }, 60e3);   // the sun moves on
+
   // ---------- trivia ----------
   // Each fact rises out of the vent in a faint cloud of steam (js/steam-message.js).
   // Animal carriers come back with the animal art.
@@ -254,7 +280,7 @@
       return { top: title.bottom + 8, bottom: innerHeight - Math.min(...bar) + 16 };
     }
   };
-  M.load().then(() => { Tri.ready = true; });
+  M.load(sky.look()).then(() => { Tri.ready = true; });
 
   function pickFact() {
     let i = order.find((k) => !Tri.seen.has(k));
@@ -371,7 +397,8 @@
     }
     return inset;
   }
-  G.mount($('scene'), { inset: dockInset });
+  G.mount($('scene'), { inset: dockInset, look: sky.look() });
+  sky.apply();
   // Test hook: #notes fills in a few field notes and opens the panel.
   if (location.hash.includes('notes')) { for (let i = 0; i < 6; i++) logNote(pickFact()); setNotes(true); }
   // Test hook: #erupt=<seconds> starts a replay and jumps that far into it.

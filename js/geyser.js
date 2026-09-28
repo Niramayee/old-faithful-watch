@@ -44,11 +44,10 @@ OF.Geyser = (() => {
   function mount(el, opts = {}) {
     root = el;
     if (opts.inset) insetFn = opts.inset;
+    if (opts.look) look = opts.look;
     stage = document.createElement('div');
     Object.assign(stage.style, { position: 'absolute', left: 0, top: 0, width: ART_W + 'px', height: ART_H + 'px', transformOrigin: '0 0' });
-    const base = new Image();
-    base.alt = ''; base.src = 'assets/geyser/00-idle.svg';
-    Object.assign(base.style, { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', display: 'block' });
+    base = makeBase();
     fxCanvas = document.createElement('canvas');
     fxCanvas.setAttribute('aria-hidden', 'true');
     Object.assign(fxCanvas.style, { position: 'absolute', display: 'block' });
@@ -56,7 +55,7 @@ OF.Geyser = (() => {
     root.append(stage);
     ctx = fxCanvas.getContext('2d');
     fit();
-    ready = buildAll();
+    ready = buildAll(look);
     return ready;
   }
 
@@ -83,7 +82,8 @@ OF.Geyser = (() => {
   const cuts = {}, hazes = {};
   const HAZE_IDS = ['r02', 't03', 'j04', 'h04'];
   // Blur by shrinking and re-enlarging (works in every browser), then wash the colours toward steam.
-  function makeHaze(cf) {
+  // In recoloured looks the ghost is filled evenly with the look's steam colour (no dark edge pixels).
+  function makeHaze(cf, wash) {
     const k = 10, sm = document.createElement('canvas');
     sm.width = Math.max(1, Math.round(cf.c.width / k)); sm.height = Math.max(1, Math.round(cf.c.height / k));
     const sx = sm.getContext('2d'); sx.imageSmoothingQuality = 'high';
@@ -92,8 +92,8 @@ OF.Geyser = (() => {
     const x = c.getContext('2d'); x.imageSmoothingQuality = 'high';
     x.drawImage(sm, 0, 0, c.width, c.height);
     x.drawImage(cf.c, 0, 0, c.width, c.height);      // keep a hint of the painted billows inside
-    x.globalCompositeOperation = 'source-atop';
-    x.fillStyle = 'rgba(247,242,233,0.6)'; x.fillRect(0, 0, c.width, c.height);
+    x.globalCompositeOperation = wash ? 'source-in' : 'source-atop';
+    x.fillStyle = wash || 'rgba(247,242,233,0.6)'; x.fillRect(0, 0, c.width, c.height);
     return { c, x: cf.x, y: cf.y, w: cf.w, h: cf.h };
   }
   let wispSprite = null, billowSprites = [], ready = null, loaded = false;
@@ -117,48 +117,115 @@ OF.Geyser = (() => {
     return { c, x: x0, y: y0, w, h };
   }
 
-  async function buildAll() {
-    const imgs = {}, masks = {};
-    const srcs = [...new Set(IDS.map((id) => DEFS[id].src))];
+  // ---------- looks (time of day, js/palette.js) ----------
+  // Each look is the same art re-inked. The background cross-fades; the plume frames switch at once.
+  let look = 'dusk', base = null;
+  const svgText = {};
+  const makeBase = () => {
+    const img = new Image();
+    img.alt = '';
+    Object.assign(img.style, { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', display: 'block', transition: 'opacity 1.6s ease' });
+    return img;
+  };
+  async function artUrl(name, lk) {
+    if (lk === 'dusk' || !window.OF.Palette) return `assets/geyser/${name}.svg`;
+    if (!svgText[name]) svgText[name] = fetch(`assets/geyser/${name}.svg`).then((r) => r.text());
+    const svg = OF.Palette.recolor(await svgText[name], lk, { frame: name, extras: name === '00-idle' });
+    return URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  }
+  const revoke = (u) => { if (u.startsWith('blob:')) URL.revokeObjectURL(u); };
+
+  function swapBase(url) {
+    if (!base.src) { base.src = url; return; }
+    const old = base, next = makeBase();
+    next.style.opacity = '0';
+    next.src = url;
+    stage.insertBefore(next, fxCanvas);
+    base = next;
+    next.decode().catch(() => {}).then(() => {
+      requestAnimationFrame(() => { next.style.opacity = '1'; });
+      setTimeout(() => { revoke(old.src); old.remove(); }, 1800);
+    });
+  }
+
+  async function buildAll(lk) {
+    const urls = {}, imgs = {}, masks = {};
+    const srcs = ['00-idle', ...new Set(IDS.map((id) => DEFS[id].src))];
     await Promise.all(srcs.map(async (s) => {
-      imgs[s] = await loadImg(`assets/geyser/${s}.svg`);
-      masks[s] = await loadImg(`assets/geyser/mask-${s}.png`);
+      urls[s] = await artUrl(s, lk);
+      imgs[s] = await loadImg(urls[s]);
+      if (s !== '00-idle') masks[s] = await loadImg(`assets/geyser/mask-${s}.png`);
     }));
-    for (const id of IDS) cuts[id] = cut(imgs[DEFS[id].src], masks[DEFS[id].src], DEFS[id]);
-    for (const id of HAZE_IDS) hazes[id] = makeHaze(cuts[id]);
+    const nc = {}, nh = {};
+    for (const id of IDS) nc[id] = cut(imgs[DEFS[id].src], masks[DEFS[id].src], DEFS[id]);
+    const washHex = lk !== 'dusk' && window.OF.Palette ? OF.Palette.tone(lk, 'steam', '#f7f2e9') : '#f7f2e9';
+    const wash = `rgba(${parseInt(washHex.slice(1, 3), 16)},${parseInt(washHex.slice(3, 5), 16)},${parseInt(washHex.slice(5, 7), 16)},0.75)`;
+    for (const id of HAZE_IDS) nh[id] = makeHaze(nc[id], lk === 'dusk' ? undefined : wash);
     // These read pixels, which browsers refuse when the page is opened as a file (file://).
     // Then the geyser runs without the extra idle wisps and the swelling billows.
-    try { await buildWisp(); buildBillows(); } catch { wispSprite = null; billowSprites = []; }
+    let nw = null, nb = [];
+    try {
+      const dusk = lk === 'dusk' ? imgs['00-idle'] : await loadImg('assets/geyser/00-idle.svg');
+      nw = keyWisp(dusk, lk);
+      nb = makeBillows(nc.h04);
+      root.style.backgroundColor = skyTop(imgs['00-idle']);
+    } catch { /* opened as a file */ }
+    if (lk !== look) { Object.values(urls).forEach(revoke); return; }   // a newer look was asked for meanwhile
+    Object.assign(cuts, nc); Object.assign(hazes, nh);
+    wispSprite = nw; billowSprites = nb;
+    COLORS = window.OF.Palette ? PAINTED.map((c) => OF.Palette.tone(lk, 'steam', c)) : PAINTED;
+    sprayAlpha = lk === 'night' ? 0.7 : 1;
+    swapBase(urls['00-idle']);
+    for (const [s, u] of Object.entries(urls)) if (s !== '00-idle') revoke(u);
     loaded = true;
   }
 
-  // The painted idle wisp, keyed out of 00-idle (pale, unsaturated, cool; cream allowed near its tip).
-  async function buildWisp() {
-    const idle = await loadImg('assets/geyser/00-idle.svg');
-    // fill any gap above the art with the sky's top colour
+  function setLook(lk) {
+    if (lk === look) return ready;
+    look = lk;
+    ready = (ready || Promise.resolve()).then(() => (lk === look ? buildAll(lk) : null));
+    return ready;
+  }
+
+  // fill any gap above the art with the sky's top colour
+  function skyTop(img) {
     const px = document.createElement('canvas'); px.width = px.height = 1;
-    const pc = px.getContext('2d'); pc.drawImage(idle, -VENT.x, -1, ART_W, ART_H);
+    const pc = px.getContext('2d'); pc.drawImage(img, -VENT.x, -1, ART_W, ART_H);
     const [r, g, b] = pc.getImageData(0, 0, 1, 1).data;
-    root.style.backgroundColor = `rgb(${r},${g},${b})`;
+    return `rgb(${r},${g},${b})`;
+  }
+
+  // The painted idle wisp: keyed out of the painted (dusk) art — pale, unsaturated, cool, cream
+  // allowed near its tip — then re-toned to the look's steam colours.
+  function keyWisp(dusk, lk) {
     const R = { x: 1140, y: 520, w: 160, h: 214 };
-    const c = document.createElement('canvas'); c.width = R.w; c.height = R.h;
-    const x = c.getContext('2d'); x.drawImage(idle, -R.x, -R.y, ART_W, ART_H);
-    const id = x.getImageData(0, 0, R.w, R.h), d = id.data;
+    const grab = (img) => {
+      const c = document.createElement('canvas'); c.width = R.w; c.height = R.h;
+      const x = c.getContext('2d'); x.drawImage(img, -R.x, -R.y, ART_W, ART_H);
+      return { c, x, id: x.getImageData(0, 0, R.w, R.h) };
+    };
+    const out = grab(dusk), d = out.id.data, key = d.slice();
+    const toned = new Map(), hex = (i) => '#' + [d[i], d[i + 1], d[i + 2]].map((v) => (v & 0xf0).toString(16).padStart(2, '0')).join('');
     for (let i = 0; i < d.length; i += 4) {
       const px = (i / 4) % R.w, py = ((i / 4) / R.w) | 0;
-      const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]);
-      const cool = d[i + 2] - d[i] > 4 || R.y + py < 700;
+      const mx = Math.max(key[i], key[i + 1], key[i + 2]), mn = Math.min(key[i], key[i + 1], key[i + 2]);
+      const cool = key[i + 2] - key[i] > 4 || R.y + py < 700;
       const keep = (mn + mx) / 2 > 150 && mx - mn < 52 && cool && R.y + py < 732;
       const dx = (R.x + px - VENT.x) / 42;
       d[i + 3] = keep ? Math.round(255 * Math.exp(-dx * dx)) : 0;
+      if (keep && lk !== 'dusk' && window.OF.Palette) {
+        const h = hex(i);
+        if (!toned.has(h)) toned.set(h, parseInt(OF.Palette.tone(lk, 'steam', h).slice(1), 16));
+        const n = toned.get(h); d[i] = n >> 16; d[i + 1] = (n >> 8) & 255; d[i + 2] = n & 255;
+      }
     }
-    x.putImageData(id, 0, 0);
-    wispSprite = { img: c, x: R.x, y: R.y, w: R.w, h: R.h };
+    out.x.putImageData(out.id, 0, 0);
+    return { img: out.c, x: R.x, y: R.y, w: R.w, h: R.h };
   }
 
   // Pieces of the full plume's outer edge that swell and settle in place, keeping the crisp outline.
-  function buildBillows() {
-    const hc = cuts.h04, src = hc.c;
+  function makeBillows(hc) {
+    const src = hc.c;
     const sx = src.getContext('2d');
     const md = sx.getImageData(0, 0, src.width, src.height).data;
     const alphaAt = (ax, ay) => {
@@ -175,7 +242,7 @@ OF.Geyser = (() => {
     for (let x = 1120; x <= 1320; x += 40) {
       for (let y = hc.y; y < hc.y + hc.h; y += 2) if (alphaAt(x, y) > 200) { edges.push({ x, y, dx: 0, dy: -1 }); break; }
     }
-    billowSprites = edges.map((e, n) => {
+    return edges.map((e, n) => {
       const r = 46 + (n % 3) * 10;
       const cx = e.x - e.dx * r * 0.45, cy = e.y - e.dy * r * 0.45;
       const size = Math.ceil(r * 2);
@@ -341,11 +408,16 @@ OF.Geyser = (() => {
     if (st.front != null) lo = Math.max(0, st.front - soft - st.ty - cf.y - 2);
     if (d.vent) hi = Math.min(hi, VENT.y + 10 - st.ty - cf.y);
     if (hi <= lo) return;
-    for (let y = Math.floor(lo / STRIP) * STRIP; y < hi; y += STRIP) {
-      const n = Math.min(STRIP, cf.h - y), ay = cf.y + y;
+    // Rows are copied pixel for pixel and meet edge to edge. (Overlapping them by a fraction of a
+    // pixel doubled the see-through steam along each seam, which showed as faint horizontal lines.)
+    sc.setTransform(1, 0, 0, 1, 0, 0);
+    const ROW = 12, p0 = Math.max(0, Math.floor(lo * RES)), p1 = Math.min(cf.c.height, Math.ceil(hi * RES));
+    for (let py = p0 - (p0 % ROW); py < p1; py += ROW) {
+      const n = Math.min(ROW, cf.c.height - py), ay = cf.y + py / RES;
       const dx = amp ? amp * Math.sin(ay * 0.045 + clockT * speed) + amp * 0.5 * Math.sin(ay * 0.11 - clockT * speed * 1.7) : 0;
-      sc.drawImage(cf.c, 0, y * RES, cf.c.width, n * RES, pad + dx, y, cf.w, n + 0.5);
+      sc.drawImage(cf.c, 0, py, cf.c.width, n, (pad + dx) * RES, py, cf.c.width, n);
     }
+    sc.setTransform(RES, 0, 0, RES, 0, 0);
     if (st.front != null || d.vent) {
       sc.globalCompositeOperation = 'destination-in';
       const f0 = st.front != null ? st.front - st.ty - cf.y - soft : -1e4;
@@ -365,7 +437,8 @@ OF.Geyser = (() => {
 
   // ---------- particles ----------
   const G = 950;
-  const COLORS = ['#f6f3ec', '#f6f3ec', '#eef2f2', '#dbe8eb', '#f3e6c4'];
+  const PAINTED = ['#f6f3ec', '#f6f3ec', '#eef2f2', '#dbe8eb', '#f3e6c4'];
+  let COLORS = PAINTED, sprayAlpha = 1;   // spray takes the look's steam colours
   const drops = [], wisps = [];
   let billowLevel = 0;
   const rand = (a, b) => a + Math.random() * (b - a);
@@ -438,29 +511,47 @@ OF.Geyser = (() => {
       lean: rand(-0.35, 0.35), flip: Math.random() < 0.5, peak: rand(0.35, 0.7)
     };
   }
+  const wispCanvas = document.createElement('canvas'), wispCtx = wispCanvas.getContext('2d');
+  const WISP_PAD = 220;   // room for the curl and lean, in sprite pixels
   function drawWisps() {
     const ws = wispSprite;
-    const WS = 8;
+    if (!ws || !wisps.length) return;
+    const W2 = ws.w + WISP_PAD * 2;
+    if (wispCanvas.width !== W2 || wispCanvas.height !== ws.h) { wispCanvas.width = W2; wispCanvas.height = ws.h; }
+    const wc = wispCtx;
     for (const w of wisps) {
       const k = w.t / w.life, e = easeOut(k);
       const life = Math.min(1, w.t / 1.4) * (1 - smooth((k - 0.4) / 0.6)) * w.peak;
+      if (life < 0.01) continue;
       const sx = w.sx * (1 + w.grow * e), sy = w.sy * (1 + 0.5 * w.grow * e);
-      const srcTop = w.top * ws.h, srcLen = w.len * ws.h;
+      const srcTop = Math.round(w.top * ws.h), srcLen = Math.min(ws.h - srcTop, Math.round(w.len * ws.h));
+      if (srcLen < 4) continue;
       const baseY = VENT.y - 4 - w.rise * e;          // where the bottom of this wisp sits now
       const baseX = VENT.x + w.drift * e * e;
-      for (let s = 0; s < srcLen; s += WS) {
-        const v = s / srcLen;                           // 0 at the top of the slice, 1 at its bottom
-        const up = (srcLen - s) * sy;                   // height of this strip above the wisp's base
-        const a = life * (1 - smooth((v - 0.55 + 0.35 * e) / 0.45)) * smooth(v / 0.15 + 0.2);
-        if (a < 0.01) continue;
+      // bend: each 2-px row of the slice shifts sideways, rows meeting edge to edge
+      wc.globalCompositeOperation = 'source-over';
+      wc.clearRect(0, 0, W2, srcLen + 1);
+      const dir = w.flip ? -1 : 1;
+      for (let s = 0; s < srcLen; s += 2) {
+        const n = Math.min(2, srcLen - s), v = s / srcLen;
+        const up = (srcLen - s) * sy;                   // height of this row above the wisp's base
         const bend = w.curl * Math.sin(up * w.freq + w.ph + w.t * w.spin) * (0.3 + v * 0.2 + (1 - v)) + w.lean * up;
-        ctx.globalAlpha = a;
-        ctx.save();
-        ctx.translate(baseX + bend, baseY - up);
-        ctx.scale(w.flip ? -sx : sx, sy);
-        ctx.drawImage(ws.img, 0, srcTop + s, ws.w, WS, ws.x - VENT.x, 0, ws.w, WS + 0.6);
-        ctx.restore();
+        wc.drawImage(ws.img, 0, srcTop + s, ws.w, n, WISP_PAD + dir * bend / sx, s, ws.w, n);
       }
+      // fade: in from the top, letting go of the vent from the bottom up as it rises
+      wc.globalCompositeOperation = 'destination-in';
+      const g = wc.createLinearGradient(0, 0, 0, srcLen);
+      for (let i = 0; i <= 12; i++) {
+        const v = i / 12;
+        g.addColorStop(v, `rgba(0,0,0,${((1 - smooth((v - 0.55 + 0.35 * e) / 0.45)) * smooth(v / 0.15 + 0.2)).toFixed(3)})`);
+      }
+      wc.fillStyle = g; wc.fillRect(0, 0, W2, srcLen);
+      ctx.save();
+      ctx.globalAlpha = life;
+      ctx.translate(baseX, baseY - srcLen * sy);
+      ctx.scale(w.flip ? -sx : sx, sy);
+      ctx.drawImage(wispCanvas, 0, 0, W2, srcLen, ws.x - VENT.x - WISP_PAD, 0, W2, srcLen);
+      ctx.restore();
     }
     ctx.globalAlpha = 1;
   }
@@ -481,7 +572,7 @@ OF.Geyser = (() => {
   function drawDrops() {
     ctx.lineCap = 'round';
     for (const p of drops) {
-      ctx.globalAlpha = p.a;
+      ctx.globalAlpha = p.a * sprayAlpha;
       ctx.strokeStyle = p.c; ctx.lineWidth = p.r;
       const k = p.mist ? 0.005 : 0.009;
       ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * k, p.y - p.vy * k); ctx.stroke();
@@ -561,11 +652,12 @@ OF.Geyser = (() => {
 
   buildEvents();
   const api = {
-    PLANS, LABEL, mount, fit, start, windDown, seek, setPlan, tick, puff, warm, vent, onPhase: null,
+    PLANS, LABEL, mount, fit, start, windDown, seek, setLook, setPlan, tick, puff, warm, vent, onPhase: null,
     pause() { playing = false; },
     resume() { if (t > 0 && t < total()) playing = true; else start(); },
     get ready() { return ready; },
     get loaded() { return loaded; },
+    get look() { return look; },
     get playing() { return playing; },
     get time() { return t; },
     get total() { return total(); },

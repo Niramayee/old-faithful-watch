@@ -45,6 +45,7 @@
 </div>
 
 <script src="js/data.js"></script>
+<script src="js/palette.js"></script>
 <script src="js/geyser.js"></script>
 <script src="js/steam-message.js"></script>
 <script>
@@ -58,7 +59,9 @@
   if (box) Object.assign(bench.style, { right: 'auto', width: (box[1] - 32) + 'px', top: (box[2] - 150) + 'px', bottom: 'auto' });
   let msg = null, paused = false, speed = 1, factI = Math.floor(Math.random() * OF.FACTS.length), gap = 0;
 
-  G.mount($('scene'), { inset: () => bench.offsetHeight + 16 });
+  const look = (location.hash.match(/sky=(\w+)/) || [0, 'dusk'])[1];
+  document.documentElement.dataset.look = look;
+  G.mount($('scene'), { inset: () => bench.offsetHeight + 16, look });
   addEventListener('resize', () => { G.fit(); if (msg) msg.layout(); });
   const opts = { layer, vent: () => G.vent(), safe: () => ({ top: 16, bottom: bench.offsetHeight + 32 }) };
 
@@ -93,11 +96,11 @@
     requestAnimationFrame(frame);
   }
 
-  // Test hooks: #m=<seconds> shows a message frozen at that moment; f=<n> picks the fact.
+  // Test hooks: #m=<seconds> shows a message frozen at that moment; f=<n> picks the fact; sky=<look>.
   const hook = location.hash.match(/m=([\d.]+)/);
   const pick = location.hash.match(/f=(\d+)/);
   if (pick) factI = +pick[1];
-  Promise.all([G.ready, M.load()]).then(() => {
+  Promise.all([G.ready, M.load(look)]).then(() => {
     M.ready = true;
     if (hook) { send(); msg.seek(+hook[1]); paused = true; $('auto').checked = false; }
   });

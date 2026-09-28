@@ -508,6 +508,10 @@ button { font: inherit; color: inherit; }
   color: #8a5a22;
 }
 
+/* at night the message clouds are grey against a dark sky: light words, dark glow */
+[data-look="night"] .steam-msg-text { color: #f1e8d6; text-shadow: 0 0 12px rgba(14,20,38,.95), 0 0 5px rgba(14,20,38,.9), 0 0 2px rgba(14,20,38,.9); }
+[data-look="night"] .steam-msg-cat { color: #d2b683; }
+
 /* ---------- small screens ---------- */
 
 /* not enough room for three columns: "Now" becomes the strip's first line */

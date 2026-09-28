@@ -5,6 +5,7 @@ An illustrated, animated view of Old Faithful in Yellowstone's Upper Geyser Basi
 - Counts down to the next eruption using the live NPS ranger prediction and plays the eruption when it's due.
 - Between eruptions, trivia rises out of the vent in a faint cloud of steam, hangs for a while, then evaporates.
 - "Hurry it up, you old geezer!" plays a shortened eruption at any time, and "Okay, okay. Put a lid on it!" cuts that replay short. A real eruption can't be stopped.
+- The poster art is re-inked for dawn, morning, day, dusk (as painted) and night. "Sky · Park time" follows the sun at Old Faithful; tap it to pick a look.
 - Optional sound (wind, birds, the eruption, applause), all generated in the browser.
 
 ## How it's built
@@ -17,6 +18,8 @@ Plain HTML, CSS and JavaScript with no build step. The geyser is a set of vintag
 | `css/style.css` | Styles for the signs, buttons and trivia carriers |
 | `js/data.js` | Trivia facts and prediction settings: **edit facts here** |
 | `js/geyser.js` | The geyser: frame cut-outs, eruption timeline, spray and steam |
+| `js/palette.js` | Time-of-day looks: sorts each shape of the art into sky, mountains, forest, cone, ground or steam and re-inks it; the sun's position at Old Faithful |
+| `sky.html` | Test bench showing every look side by side (with a colour-family view) |
 | `js/steam-message.js` | Trivia clouds: rise from the vent, hold the text, tear apart and evaporate |
 | `eruption.html` | Test bench for the eruption alone (play, scrub, speed, loop) |
 | `message.html` | Test bench for the steam messages |

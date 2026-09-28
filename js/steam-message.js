@@ -84,11 +84,28 @@ OF.SteamMessage = (() => {
     return c;
   }
 
-  let ready = null;
-  function load() {
-    if (!ready) ready = Promise.all(Object.entries(SPRITES).map(async ([k, s]) => {
-      sprites[k] = clean(await loadImg(`assets/wisps/${s.src}.svg`), s);
-    }));
+  // The clouds take the steam colours of the time-of-day look (js/palette.js); dusk is as painted.
+  let ready = null, look = 'dusk';
+  const texts = {};
+  async function wispImg(src, lk) {
+    if (lk === 'dusk' || !window.OF.Palette) return loadImg(`assets/wisps/${src}.svg`);
+    if (!texts[src]) texts[src] = fetch(`assets/wisps/${src}.svg`).then((r) => r.text());
+    const url = URL.createObjectURL(new Blob([OF.Palette.recolor(await texts[src], lk, { family: 'steam' })], { type: 'image/svg+xml' }));
+    try { return await loadImg(url); } finally { URL.revokeObjectURL(url); }
+  }
+  function build(lk) {
+    return Promise.all(Object.entries(SPRITES).map(async ([k, s]) => [k, clean(await wispImg(s.src, lk), s)]))
+      .then((pairs) => { if (lk === look) for (const [k, c] of pairs) sprites[k] = c; });
+  }
+  function load(lk) {
+    if (lk) look = lk;
+    if (!ready) ready = build(look);
+    return ready;
+  }
+  function setLook(lk) {
+    if (lk === look) return ready;
+    look = lk;
+    ready = (ready || Promise.resolve()).then(() => (lk === look ? build(lk) : null));
     return ready;
   }
 
@@ -224,7 +241,8 @@ OF.SteamMessage = (() => {
         const tx = TEXT.x + TEXT.w / 2, ty = TEXT.y + TEXT.h / 2;
         ctx.translate(tx, ty); ctx.scale(1, TEXT.h / TEXT.w);
         const rg = ctx.createRadialGradient(0, 0, 0, 0, 0, TEXT.w * 0.62);
-        rg.addColorStop(0, '#fcf6ea'); rg.addColorStop(0.7, 'rgba(252,246,234,.85)'); rg.addColorStop(1, 'rgba(252,246,234,0)');
+        const wc = look === 'night' ? '38,46,70' : '252,246,234';   // at night the words are light, so the wash is dark
+        rg.addColorStop(0, `rgb(${wc})`); rg.addColorStop(0.7, `rgba(${wc},.85)`); rg.addColorStop(1, `rgba(${wc},0)`);
         ctx.fillStyle = rg;
         ctx.fillRect(-TEXT.w, -TEXT.w, TEXT.w * 2, TEXT.w * 2);
         ctx.restore();
@@ -249,5 +267,5 @@ OF.SteamMessage = (() => {
     return api;
   }
 
-  return { load, create, T };
+  return { load, setLook, create, T };
 })();

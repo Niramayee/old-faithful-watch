@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sky Looks Test</title>
+<style>
+  /* Test bench for js/palette.js: every look of one frame side by side. */
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 16px; background: #15110c; color: #efe4c9; font: 14px/1.4 system-ui, sans-serif; }
+  .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; }
+  select { background: #2a1c0e; color: inherit; border: 1px solid #6b5535; border-radius: 4px; padding: 4px 6px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 640px), 1fr)); gap: 14px; }
+  figure { margin: 0; }
+  figure img { width: 100%; display: block; border-radius: 4px; background: #000; }
+  figcaption { margin-top: 4px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; font-size: 12px; color: #c9bb96; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <label>Frame
+    <select id="frame">
+      <option>00-idle</option><option>02-rising</option><option>03-tall-jet</option><option>04-full</option>
+      <option>05-declining</option><option>06-collapse-steam</option><option>07-steam-fading</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="fam"> Show colour families</label>
+  <span id="now"></span>
+</div>
+<div class="grid" id="grid"></div>
+<script src="js/palette.js"></script>
+<script>
+(() => {
+  const P = OF.Palette, grid = document.getElementById('grid');
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (q.get('frame')) document.getElementById('frame').value = q.get('frame');
+  if (q.has('families')) document.getElementById('fam').checked = true;
+  const urls = [];
+  async function render() {
+    urls.forEach(URL.revokeObjectURL); urls.length = 0; grid.textContent = '';
+    const frame = document.getElementById('frame').value;
+    const text = await (await fetch(`assets/geyser/${frame}.svg`)).text();
+    const looks = document.getElementById('fam').checked ? ['families', 'dusk'] : P.NAMES;
+    for (const look of looks) {
+      const url = URL.createObjectURL(new Blob([P.recolor(text, look, { frame, extras: frame === '00-idle' })], { type: 'image/svg+xml' }));
+      urls.push(url);
+      const fig = document.createElement('figure');
+      const img = new Image(); img.src = url; img.alt = `${frame} at ${look}`;
+      const cap = document.createElement('figcaption'); cap.textContent = look === 'dusk' ? 'dusk (as painted)' : look;
+      fig.append(img, cap); grid.append(fig);
+    }
+    const s = P.sunAt();
+    document.getElementById('now').textContent = `Sun at Old Faithful now: ${s.elevation.toFixed(1)}° (${s.morning ? 'rising' : 'setting'}) → ${P.lookFor()}`;
+  }
+  document.getElementById('frame').addEventListener('change', render);
+  document.getElementById('fam').addEventListener('change', render);
+  render();
+})();
+</script>
+</body>
+</html>
