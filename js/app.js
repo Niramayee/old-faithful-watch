@@ -248,7 +248,7 @@
     look() { return this.mode === 'live' ? OF.Palette.lookFor(new Date()) : this.mode; },
     apply() {
       const lk = this.look();
-      G.setLook(lk); M.setLook(lk); OF.Birds.setLook(lk);
+      G.setLook(lk); M.setLook(lk); OF.Birds.setLook(lk); OF.Bison.setLook(lk);
       document.documentElement.dataset.look = lk;
       setText($('sky'), `Sky · ${SKY_NAME[this.mode]}`);
       $('sky').setAttribute('aria-label', `Sky: ${SKY_NAME[this.mode]}${this.mode === 'live' ? ` (${lk} at Old Faithful now)` : ''}. Change time of day`);
@@ -407,13 +407,24 @@
     toScreen: (ax, ay) => { const v = G.vent(); return { x: v.x + (ax - 1215) * v.scale, y: v.y + (ay - 738) * v.scale }; },
     // a spot on the basin floor beside the geyser (art units), if it isn't hidden by the strip
     ground: () => {
-      // right of the mound: sand (the left side has a pale pool along the forest edge)
-      const v = G.vent(), ax = 1540 + Math.random() * 260, ay = 768 + Math.random() * 14;
+      // either side of the mound, on sand (the left meadow's pools lie just below the forest edge)
+      const left = Math.random() < 0.5;
+      const v = G.vent(), ax = left ? 480 + Math.random() * 220 : 1540 + Math.random() * 260, ay = left ? 798 + Math.random() * 8 : 768 + Math.random() * 14;
       const x = v.x + (ax - 1215) * v.scale, y = v.y + (ay - 738) * v.scale;
       const barTop = Math.min(...[...document.querySelector('.bar').children].map((c) => c.getBoundingClientRect().top));
       return x > 30 && x < innerWidth - 30 && y < barTop - 16 ? { ax, ay } : null;
     }
   });
+  // bison graze on the basin floor (their canvas goes under the birds')
+  OF.Bison.mount($('scene'), {
+    toScreen: (ax, ay) => { const v = G.vent(); return { x: v.x + (ax - 1215) * v.scale, y: v.y + (ay - 738) * v.scale, s: v.scale }; },
+    visibleBelow: () => Math.min(...[...document.querySelector('.bar').children].map((c) => c.getBoundingClientRect().top))
+  });
+  // Test hook: #bisonsnap sends the lone walker and moves it to mid-basin (for screenshots).
+  if (location.hash.includes('bisonsnap')) {
+    const snap = () => { if (!OF.Bison.ready) return setTimeout(snap, 200); OF.Bison.sendWalker(); OF.Bison.tick(40); };
+    snap();
+  }
   // Test hook: #birds sends a crossing every few seconds.
   if (location.hash.includes('birds') && !location.hash.includes('birdsnap')) {
     setInterval(() => OF.Birds.launch(), 3000);
@@ -432,7 +443,7 @@
   // Test hook: #erupt=<seconds> starts a replay and jumps that far into it.
   const jump = location.hash.match(/erupt=([\d.]+)/);
   if (jump) G.ready.then(() => { startEruption('demo'); G.seek(+jump[1]); });
-  addEventListener('resize', () => { G.fit(); OF.Birds.fit(); if (Tri.active) Tri.active.layout(); });
+  addEventListener('resize', () => { G.fit(); OF.Birds.fit(); OF.Bison.fit(); if (Tri.active) Tri.active.layout(); });
   if (window.ResizeObserver) new ResizeObserver(() => G.fit()).observe(dock);   // e.g. fonts arriving
 
   let last = performance.now(), sndT = 0, signT = 0, trigT = 0, clockT = 0;
@@ -441,6 +452,7 @@
     last = ts; clockT += dt;
     const now = ts / 1000;
     const info = G.tick(dt);
+    OF.Bison.tick(dt);
     OF.Birds.tick(dt);
     renderNow(info);
     wind = 0.4 + 0.15 * Math.sin(clockT * 0.07) + 0.08 * Math.sin(clockT * 0.23);

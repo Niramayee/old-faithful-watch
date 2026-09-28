@@ -1,5 +1,5 @@
 """Copy the Recraft geyser frames from art/ into assets/geyser/, the steam-message wisps into
-assets/wisps/ and the ravens into assets/birds/, stripping the embedded C2PA metadata (most of each file's size).
+assets/wisps/, the ravens into assets/birds/ and the bison into assets/bison/, stripping the embedded C2PA metadata (most of each file's size).
 Run from the project root: python3 tools/prepare_art.py"""
 import re
 from pathlib import Path
@@ -33,3 +33,12 @@ for name, out_name in BIRDS.items():
     svg = re.sub(r"<metadata>.*?</metadata>", "", (src / f"{name}.svg").read_text(), flags=re.S)
     (bdst / f"{out_name}.svg").write_text(svg)
     print(f"{name} -> birds/{out_name}: {len(svg) // 1024} KB")
+
+# Bison: a mother grazing with her head low (Bison 1), her calf (Bison 8), and a wanderer (Bison 6).
+BISON = {"Bison 1": "grazing", "Bison 8": "calf", "Bison 6": "walking"}
+xdst = Path("assets/bison")
+xdst.mkdir(parents=True, exist_ok=True)
+for name, out_name in BISON.items():
+    svg = re.sub(r"<metadata>.*?</metadata>", "", (src / f"{name}.svg").read_text(), flags=re.S)
+    (xdst / f"{out_name}.svg").write_text(svg)
+    print(f"{name} -> bison/{out_name}: {len(svg) // 1024} KB")

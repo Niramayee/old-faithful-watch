@@ -19,7 +19,7 @@ OF.Birds = (() => {
   // The landing raven's drawings: each cropped to the bird, with the point that sits on the path
   // (for the standing one, its feet). Pre-drawn once at a few sizes' worth of pixels.
   const ART = {
-    stand: { src: 'raven-standing', box: [365, 502, 751, 936], anchor: [490, 930], faces: 1, h: 17 },
+    stand: { src: 'raven-standing', box: [365, 502, 751, 936], anchor: [490, 930], faces: 1, h: 14 },
     glide: { src: 'raven-glide', box: [44, 86, 980, 907], anchor: [512, 500], faces: -1, w: 32 },
     flare: { src: 'raven-flare', box: [31, 296, 955, 687], anchor: [493, 490], faces: -1, w: 32 }
   };
