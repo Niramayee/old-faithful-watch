@@ -1,6 +1,9 @@
 {
   "name": "old-faithful-watch",
   "private": true,
-  "description": "Illustrated live view of Old Faithful with eruption countdown and Yellowstone trivia",
+  "description": "Illustrated live view of Old Faithful with an eruption countdown and Yellowstone trivia",
+  "license": "SEE LICENSE IN LICENSE",
+  "homepage": "https://keep-faith.vercel.app",
+  "repository": { "type": "git", "url": "https://github.com/Niramayee/old-faithful-watch.git" },
   "engines": { "node": ">=18" }
 }

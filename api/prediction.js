@@ -1,12 +1,17 @@
 // Vercel serverless function: GET /api/prediction
 // Fetches Old Faithful's latest prediction from GeyserTimes server-side (no browser CORS limits)
 // and lets Vercel's edge cache hold it for 2 minutes, so all visitors share one upstream request.
+// GeyserTimes runs on donated servers and asks clients to poll no more than once a minute and to
+// display its ODbL attribution (see index.html); https://www.geysertimes.org/api/v5/docs/index.php
 
 const SOURCE = 'https://www.geysertimes.org/api/v5/predictions_latest';
 
 module.exports = async (req, res) => {
   try {
-    const r = await fetch(SOURCE, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
+    const r = await fetch(SOURCE, {
+      headers: { Accept: 'application/json', 'User-Agent': 'OldFaithfulWatch (+https://github.com/Niramayee/old-faithful-watch)' },
+      signal: AbortSignal.timeout(8000)
+    });
     if (!r.ok) throw new Error(`GeyserTimes responded ${r.status}`);
     const j = await r.json();
     const now = Date.now();

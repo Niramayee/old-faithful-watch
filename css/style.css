@@ -176,6 +176,11 @@ body {
   color: #b7c7a4;
 }
 .status { position: relative; cursor: help; border-radius: 3px; }
+/* the data attribution GeyserTimes asks for, always visible */
+.credit { font-size: 11px; letter-spacing: .02em; color: rgba(201,187,150,.8); }
+.credit::before { content: "·"; margin: 0 9px; }
+.credit a { color: inherit; text-decoration: underline; text-decoration-color: rgba(201,187,150,.45); text-underline-offset: 2px; }
+.credit a:hover { color: #fbf4e4; }
 .status .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px rgba(183,199,164,.22); }
 .status[data-state="saved"] { color: var(--cream-dim); }
 .status[data-state="window"] { color: var(--ochre-hi); }
@@ -353,7 +358,8 @@ button { font: inherit; color: inherit; }
   text-wrap: pretty;
 }
 .notes-empty { margin: 28px 0 0; font-family: var(--serif); font-style: italic; font-size: 18px; color: #c7ba99; }
-.notes-foot { margin: 26px 0 0; font-size: 13px; color: #a08e6b; }
+.notes-foot { margin: 26px 0 0; font-size: 13px; line-height: 1.5; color: #a08e6b; }
+.notes-foot p { margin: 0 0 8px; }
 .notes-foot a { color: #d2b683; }
 
 /* the steam-message label reuses this look */

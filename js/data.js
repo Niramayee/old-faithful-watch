@@ -1,4 +1,5 @@
-/* Content and prediction constants. Edit freely: facts are plain objects {c: category, t: text}. */
+/* Content and prediction constants. Edit freely: facts are plain objects {c: category, t: text}.
+   Facts are compiled from National Park Service material and other public sources; corrections welcome. */
 window.OF = window.OF || {};
 
 OF.PREDICTION = {
