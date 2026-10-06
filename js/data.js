@@ -2,6 +2,13 @@
    Facts are compiled from National Park Service material and other public sources; corrections welcome. */
 window.OF = window.OF || {};
 
+// Analytics: Hotjar loads only on the live site (not local previews or test pages).
+// The site ID is public anyway (it appears in the page), so it's fine to keep here.
+OF.ANALYTICS = {
+  hotjarId: null,                       // your Hotjar Site ID, e.g. 1234567
+  hosts: ['keep-faith.vercel.app']      // where to load it
+};
+
 OF.PREDICTION = {
   // Live source: our Vercel function (api/prediction.js), which reads GeyserTimes server-side.
   // GeyserTimes relays the NPS ranger prediction ("Prediction uploaded from NPS/CartoDB system").
