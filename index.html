@@ -66,6 +66,7 @@
       <p>Eruption predictions are made by Yellowstone National Park rangers (<a href="https://www.nps.gov/yell/planyourvisit/geyser-activity.htm" target="_blank" rel="noopener">NPS geyser activity</a>) and relayed by <a href="https://www.geysertimes.org/geyser.php?id=Old+Faithful" target="_blank" rel="noopener">GeyserTimes</a>. Contains information from <a href="https://www.geysertimes.org" target="_blank" rel="noopener">GeyserTimes</a>, which is made available here under the <a href="https://opendatacommons.org/licenses/odbl/" target="_blank" rel="noopener">Open Database License (ODbL)</a>.</p>
       <p>An independent fan project, not affiliated with or endorsed by the National Park Service or GeyserTimes. Predictions can be wrong: Old Faithful sets its own schedule.</p>
       <p>Illustrations made with Recraft. <a href="https://github.com/Niramayee/old-faithful-watch" target="_blank" rel="noopener">Source code</a>.</p>
+      <p>This site uses <a href="https://clarity.microsoft.com" target="_blank" rel="noopener">Microsoft Clarity</a> to understand how visitors use it (pages, clicks and scrolling).</p>
     </div>
   </div>
 </aside>
@@ -74,10 +75,17 @@
 
 <script src="js/data.js"></script>
 <script>
-  // Hotjar (OF.ANALYTICS in js/data.js): only on the live site, and only once a Site ID is set.
+  // Analytics (OF.ANALYTICS in js/data.js): only on the live site, and only for the IDs that are set.
   (function (cfg) {
-    if (!cfg || !cfg.hotjarId || cfg.hosts.indexOf(location.hostname) < 0) return;
-    (function (h, o, t, j, a, r) {
+    if (!cfg || cfg.hosts.indexOf(location.hostname) < 0) return;
+    // Microsoft Clarity
+    if (cfg.clarityId) (function (c, l, a, r, i, t, y) {
+      c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments); };
+      t = l.createElement(r); t.async = 1; t.src = 'https://www.clarity.ms/tag/' + i;
+      y = l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t, y);
+    })(window, document, 'clarity', 'script', cfg.clarityId);
+    // Hotjar
+    if (cfg.hotjarId) (function (h, o, t, j, a, r) {
       h.hj = h.hj || function () { (h.hj.q = h.hj.q || []).push(arguments); };
       h._hjSettings = { hjid: cfg.hotjarId, hjsv: 6 };
       a = o.getElementsByTagName('head')[0];

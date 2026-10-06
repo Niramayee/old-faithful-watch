@@ -90,6 +90,7 @@ The site is designed for [Vercel](https://vercel.com): import the repository wit
 - **Illustrations** were made with [Recraft](https://www.recraft.ai).
 - **Fonts:** Cormorant Garamond, Alegreya, Alegreya Sans and Big Shoulders Display, from [Google Fonts](https://fonts.google.com) (SIL Open Font License).
 - **Trivia facts** are compiled from National Park Service material and other public sources. Corrections are welcome.
+- **Analytics:** [Microsoft Clarity](https://clarity.microsoft.com), loaded only on the live site (see `OF.ANALYTICS` in `js/data.js`).
 
 This is an independent fan project, not affiliated with or endorsed by the National Park Service or GeyserTimes.
 

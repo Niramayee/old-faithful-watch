@@ -2,10 +2,11 @@
    Facts are compiled from National Park Service material and other public sources; corrections welcome. */
 window.OF = window.OF || {};
 
-// Analytics: Hotjar loads only on the live site (not local previews or test pages).
-// The site ID is public anyway (it appears in the page), so it's fine to keep here.
+// Analytics load only on the live site (not local previews or test pages).
+// These IDs are public anyway (they appear in the page), so it's fine to keep them here.
 OF.ANALYTICS = {
-  hotjarId: null,                       // your Hotjar Site ID, e.g. 1234567
+  clarityId: 'ytlh1tin10',              // Microsoft Clarity project ID
+  hotjarId: null,                       // Hotjar Site ID (unused for now), e.g. 1234567
   hosts: ['keep-faith.vercel.app']      // where to load it
 };
 
